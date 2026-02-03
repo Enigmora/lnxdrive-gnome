@@ -18,7 +18,7 @@ gtk4 = "0.8"
 libadwaita = "0.6"
 
 # D-Bus communication with daemon
-lnxdrive-ipc = { git = "https://github.com/enigmora/lnxdrive-core.git" }
+lnxdrive-ipc = { git = "https://github.com/enigmora/lnxdrive.git" }
 
 # Async runtime
 tokio = { version = "1.35", features = ["full"] }
