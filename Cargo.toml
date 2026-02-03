@@ -1,0 +1,42 @@
+[package]
+name = "lnxdrive-gnome"
+version = "0.1.0"
+edition = "2021"
+authors = ["Enigmora <contact@enigmora.com>"]
+license = "GPL-3.0-or-later"
+description = "LNXDrive GNOME desktop integration"
+repository = "https://github.com/enigmora/lnxdrive-gnome"
+rust-version = "1.75"
+
+[[bin]]
+name = "lnxdrive-gnome"
+path = "src/main.rs"
+
+[dependencies]
+# GTK4 + libadwaita
+gtk4 = "0.8"
+libadwaita = "0.6"
+
+# D-Bus communication with daemon
+lnxdrive-ipc = { git = "https://github.com/enigmora/lnxdrive-core.git" }
+
+# Async runtime
+tokio = { version = "1.35", features = ["full"] }
+
+# GIO integration
+gio = "0.19"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[build-dependencies]
+glib-build-tools = "0.19"

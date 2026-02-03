@@ -1,0 +1,24 @@
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Build artifacts
+*.so
+*.dylib
+
+# GNOME
+*.gresource
+*.ui~
+
+# Flatpak
+.flatpak-builder/
+builddir/
+repo/
