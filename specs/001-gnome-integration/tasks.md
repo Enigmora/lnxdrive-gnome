@@ -62,7 +62,7 @@
 ### i18n Infrastructure
 
 - [x] T020 Create `po/POTFILES.in` listing all translatable source files: `preferences/src/main.rs`, `preferences/src/app.rs`, `preferences/src/window.rs`, `preferences/src/onboarding/auth_page.rs`, `preferences/src/onboarding/folder_page.rs`, `preferences/src/onboarding/confirm_page.rs`, `preferences/src/preferences/account_page.rs`, `preferences/src/preferences/sync_page.rs`, `preferences/src/preferences/advanced_page.rs`, `preferences/src/preferences/folder_tree.rs`, `preferences/data/com.enigmora.LNXDrive.Preferences.desktop.in`, `preferences/data/com.enigmora.LNXDrive.Preferences.metainfo.xml.in`
-- [x] T021 [P] Create `po/LINGUAS` with initial language: `en`
+- [x] T021 [P] Create `po/LINGUAS` — initially empty (English is the source language, no .po needed; languages added as translations are contributed)
 - [x] T022 [P] Create `po/lnxdrive-gnome.pot` — initial empty gettext template with standard header (Project-Id-Version, POT-Creation-Date, charset=UTF-8)
 - [x] T023 [P] Create `po/meson.build` with `i18n.gettext('lnxdrive-gnome', preset: 'glib')`. Add `subdir('po')` to top-level `meson.build`.
 
@@ -144,7 +144,7 @@
 
 ### Onboarding Module
 
-- [x] T045 [US5] Create `preferences/src/onboarding/mod.rs` — declare `pub mod auth_page; pub mod folder_page; pub mod confirm_page;`. Define `OnboardingView` as `adw::NavigationView` subclass. Implement `new(dbus_client: DbusClient)`: create AuthPage, push as initial page. Define transient `OnboardingState` struct: `account_email: Option<String>`, `account_name: Option<String>`, `sync_root: Option<PathBuf>`. Implement `on_cancel()`: reset state to None for all fields, pop to AuthPage (FR-033).
+- [x] T045 [US5] Create `preferences/src/onboarding/mod.rs` — declare `pub mod auth_page; pub mod folder_page; pub mod confirm_page;`. Define `OnboardingView` as `adw::Bin` subclass (composition: wraps internal `adw::NavigationView` since NavigationView is not subclassable in libadwaita-rs). Implement `new(dbus_client: DbusClient)`: create AuthPage, push as initial page. Define transient `OnboardingState` struct: `account_email: Option<String>`, `account_name: Option<String>`, `sync_root: Option<PathBuf>`. Implement `on_cancel()`: reset state to None for all fields, pop to AuthPage (FR-033).
 - [x] T046 [US5] Create `preferences/src/onboarding/auth_page.rs` — define `AuthPage` as `adw::NavigationPage` subclass with title "Sign In". Build UI: `adw::StatusPage` with icon "dialog-password-symbolic", title "Sign in to OneDrive", description "You'll be redirected to Microsoft to authorize LNXDrive". "Sign In" `gtk::Button` (suggested-action style). On click: call `dbus_client.start_auth().await` → get `(auth_url, state)` → launch browser via `gio::AppInfo::launch_default_for_uri_async(&auth_url, ...)` → switch to waiting state: show spinner + "Waiting for authentication..." + Cancel button. Subscribe `AuthStateChanged` signal: on "authenticated" → store account info in OnboardingState → push FolderPage. On Cancel: call `on_cancel()` on OnboardingView. Handle error: show inline error banner "Authentication failed. Please try again."
 - [x] T047 [US5] Create `preferences/src/onboarding/folder_page.rs` — define `FolderPage` as `adw::NavigationPage` with title "Choose Folder". Build UI: `adw::PreferencesGroup` with `adw::ActionRow` showing current path (default `~/OneDrive`). "Choose Folder..." button: open `gtk::FileDialog::new()` in select-folder mode, on response store path in OnboardingState. "Continue" button (suggested-action): validate path exists or can be created → push ConfirmPage. "Back" button: pop navigation.
 - [x] T048 [US5] Create `preferences/src/onboarding/confirm_page.rs` — define `ConfirmPage` as `adw::NavigationPage` with title "Ready to Sync". Build UI: `adw::StatusPage` with icon "emblem-ok-symbolic", title "All Set!". `adw::PreferencesGroup` summary rows: "Account" → email from OnboardingState, "Sync Folder" → path from OnboardingState. "Start Syncing" button (suggested-action): call `dbus_client.set_config()` with sync_root YAML → call `dbus_client.sync_now()` (FR-034) → on success: switch window to preferences view via `window.show_preferences()`. "Back" button: pop to FolderPage. Handle D-Bus errors: show toast "Failed to start sync: {error}".
@@ -281,6 +281,18 @@
 
 ---
 
+## Stage 9: Non-Functional Validation (Optional, Post-MVP)
+
+**Purpose**: Validate performance and resource NFRs that cannot be verified during unit/integration testing.
+
+- [ ] T077 [P] Create `tests/bench-nautilus-overlay.sh` — script that populates mock sync root with 5000+ files, starts mock daemon, triggers Nautilus directory load, measures time from `update_file_info()` entry to last emblem set via `G_MESSAGES_DEBUG=LNXDrive` timestamps. Assert ≤500ms for full batch (FR-027, SC-005).
+- [ ] T078 [P] Create `tests/bench-shell-indicator.sh` — script that starts mock daemon, triggers 100 consecutive `SyncProgress` signals at 100ms interval, measures indicator label update latency via D-Bus round-trip timestamps. Assert ≤3s for state reflection (SC-003).
+- [ ] T079 [P] Create `tests/bench-shell-resources.md` — document baseline resource usage for Shell extension: measure RSS, CPU% idle via `gnome-shell --replace` + `ps`. Compare to reference GNOME extensions (AppIndicator, Dash-to-Dock). Target: within 2x of typical extension (FR-028).
+
+**Checkpoint**: All three NFR benchmarks documented. FR-027, FR-028, SC-003, SC-005 validated with measurable evidence.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Stage Dependencies
@@ -375,9 +387,9 @@ All:                                                     [Stage 8]
 
 | Metric | Value |
 |--------|-------|
-| **Total Tasks** | **75** |
-| **Parallel-marked [P]** | **30** (40%) |
-| Tasks per Stage | S1: 7, S2: 20, S3: 13, S4: 9, S5: 7, S6: 7, S7: 2, S8: 10 |
+| **Total Tasks** | **78** (75 implemented + 3 NFR validation) |
+| **Parallel-marked [P]** | **33** (42%) |
+| Tasks per Stage | S1: 7, S2: 20, S3: 13, S4: 9, S5: 7, S6: 7, S7: 2, S8: 10, S9: 3 |
 | Tasks per User Story | US1: 10, US2: 5, US3: 7, US4: 7, US5: 9, US6: 2 |
 | FR Coverage | 37/37 (100%) |
 | Pending issues referenced | 16/16 (all tagged in relevant tasks) |
