@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <!-- Cloud outline -->
+  <path fill="currentColor" d="M4.5 13A3.5 3.5 0 0 1 1 9.5a3.5 3.5 0 0 1 2.744-3.418A5.002 5.002 0 0 1 13 7a3 3 0 0 1 0 6H4.5zM8 3a4 4 0 0 0-3.796 2.735.5.5 0 0 1-.429.348A2.501 2.501 0 0 0 4.5 12H13a2 2 0 1 0-.178-3.992.5.5 0 0 1-.522-.41A4.002 4.002 0 0 0 8 3z"/>
+  <!-- Small sync arrows inside cloud -->
+  <path fill="currentColor" d="M9.5 7.5L11 9l-1.5 1.5V9.25H6.5v-1h3V7.5zM6.5 8.5L5 7l1.5-1.5v1.25h3v1h-3V8.5z"/>
+</svg>

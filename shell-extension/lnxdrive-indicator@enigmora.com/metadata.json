@@ -1,0 +1,9 @@
+{
+    "uuid": "lnxdrive-indicator@enigmora.com",
+    "name": "LNXDrive",
+    "description": "Cloud sync status indicator for LNXDrive",
+    "shell-version": ["45", "46", "47"],
+    "version": 1,
+    "url": "https://github.com/enigmora/lnxdrive-gnome",
+    "settings-schema": "com.enigmora.LNXDrive.Indicator"
+}

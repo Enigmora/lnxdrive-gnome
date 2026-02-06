@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Background rounded square -->
+  <rect x="4" y="4" width="120" height="120" rx="24" ry="24" fill="#3584e4"/>
+
+  <!-- Cloud shape -->
+  <path fill="#ffffff" d="M38 88a14 14 0 0 1-1.37-27.942C38.247 49.425 47.78 42 59 42c9.38 0 17.56 5.163 21.834 12.794A18 18 0 0 1 82 90H38z"/>
+
+  <!-- Sync arrows overlaid on cloud -->
+  <!-- Top arrow (pointing right) -->
+  <path fill="#3584e4" d="M72 62l6 6-6 6v-4H52v-4h20v-4z" opacity="0.9"/>
+  <!-- Bottom arrow (pointing left) -->
+  <path fill="#3584e4" d="M56 70l-6-6 6-6v4h20v4H56v4z" opacity="0.9"/>
+
+  <!-- Subtle highlight on cloud -->
+  <path fill="#ffffff" opacity="0.3" d="M38 88a14 14 0 0 1-1.37-27.942C38.247 49.425 47.78 42 59 42c3.22 0 6.27.762 8.97 2.114C61.1 45.89 55.4 52.65 54 61.2a14.05 14.05 0 0 0-8 12.8c0 5.14 2.78 9.63 6.91 12.06L38 88z"/>
+
+  <!-- Refined cloud outline for crispness -->
+  <path fill="none" stroke="#2a6cc4" stroke-width="2" d="M38 88a14 14 0 0 1-1.37-27.942C38.247 49.425 47.78 42 59 42c9.38 0 17.56 5.163 21.834 12.794A18 18 0 0 1 82 90H38z"/>
+</svg>

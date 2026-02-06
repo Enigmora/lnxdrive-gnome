@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=LNXDrive Preferences
+GenericName=Cloud Sync Settings
+Comment=Configure LNXDrive cloud synchronization
+Exec=lnxdrive-preferences
+Icon=com.enigmora.LNXDrive
+Categories=Settings;GTK;
+StartupNotify=true
+Terminal=false

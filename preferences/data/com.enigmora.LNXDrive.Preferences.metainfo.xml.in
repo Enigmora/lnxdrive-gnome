@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.enigmora.LNXDrive.Preferences</id>
+
+  <name>LNXDrive Preferences</name>
+  <summary>Configure LNXDrive cloud synchronization for GNOME</summary>
+
+  <description>
+    <p>
+      LNXDrive Preferences lets you manage your cloud synchronization settings
+      directly from GNOME. Configure your OneDrive accounts, choose which folders
+      to sync, set bandwidth limits, and control files-on-demand behavior -- all
+      from a single, native desktop application.
+    </p>
+  </description>
+
+  <project_license>GPL-3.0-or-later</project_license>
+  <metadata_license>CC0-1.0</metadata_license>
+
+  <developer id="com.enigmora">
+    <name>Enigmora</name>
+  </developer>
+
+  <url type="homepage">https://github.com/enigmora/lnxdrive-gnome</url>
+
+  <content_rating type="oars-1.1" />
+
+  <releases>
+    <release version="0.1.0" date="2026-02-05" />
+  </releases>
+
+  <launchable type="desktop-id">com.enigmora.LNXDrive.Preferences.desktop</launchable>
+</component>
