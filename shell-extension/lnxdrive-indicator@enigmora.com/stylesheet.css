@@ -1,0 +1,64 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* SPDX-FileCopyrightText: 2026 Enigmora <https://enigmora.com> */
+
+/*
+ * LNXDrive Shell Extension Stylesheet
+ *
+ * Styles for the panel indicator and its dropdown menu.
+ * Uses St (Shell Toolkit) CSS, not standard web CSS.
+ *
+ * Note: St CSS supports a subset of CSS properties plus some
+ * Clutter-specific ones like rotation-angle.
+ */
+
+/* --- Icon state animations and styles --- */
+
+/* Syncing state: rotating icon to indicate activity */
+.lnxdrive-syncing .system-status-icon {
+    animation: lnxdrive-spin 2s linear infinite;
+}
+
+@keyframes lnxdrive-spin {
+    to {
+        rotation-angle: 360;
+    }
+}
+
+/* Paused state: dimmed icon */
+.lnxdrive-paused .system-status-icon {
+    opacity: 0.5;
+}
+
+/* Error state: red-tinted icon */
+.lnxdrive-error .system-status-icon {
+    color: #e74c3c;
+}
+
+/* Offline state: heavily dimmed icon */
+.lnxdrive-offline .system-status-icon {
+    opacity: 0.3;
+}
+
+/* --- Quota bar --- */
+
+/* Outer container (background track) */
+.lnxdrive-quota-bar {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+    height: 6px;
+    margin-top: 4px;
+}
+
+/* Inner fill (used portion) */
+.lnxdrive-quota-fill {
+    background-color: #3584e4;
+    border-radius: 3px;
+    height: 6px;
+}
+
+/* --- Status label (secondary text) --- */
+
+.lnxdrive-status-label {
+    font-size: 0.9em;
+    color: rgba(255, 255, 255, 0.7);
+}

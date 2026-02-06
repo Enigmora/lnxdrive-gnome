@@ -1,0 +1,14 @@
+preferences/src/main.rs
+preferences/src/app.rs
+preferences/src/window.rs
+preferences/src/onboarding/mod.rs
+preferences/src/onboarding/auth_page.rs
+preferences/src/onboarding/folder_page.rs
+preferences/src/onboarding/confirm_page.rs
+preferences/src/preferences/mod.rs
+preferences/src/preferences/account_page.rs
+preferences/src/preferences/sync_page.rs
+preferences/src/preferences/advanced_page.rs
+preferences/src/preferences/folder_tree.rs
+preferences/data/com.enigmora.LNXDrive.Preferences.desktop.in
+preferences/data/com.enigmora.LNXDrive.Preferences.metainfo.xml.in
