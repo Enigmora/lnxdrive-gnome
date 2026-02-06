@@ -10,14 +10,14 @@ Implement the Phase 3 "GNOME Integration" of the LNXDrive project: a multi-compo
 ## Technical Context
 
 **Language/Version**: Rust 1.83+ (preferences/onboarding), C11 (Nautilus extension, GOA provider), GJS/ESM (Shell extension)
-**Primary Dependencies**: gtk4-rs 0.9.x, libadwaita-rs 0.7-0.8.x, zbus 5.x, libnautilus-extension-4, GJS (GNOME Shell), lnxdrive-ipc, oauth2 5.x, gettextrs 0.7
+**Primary Dependencies**: gtk4-rs 0.9.x, libadwaita-rs 0.7-0.8.x, zbus 5.x, libnautilus-extension-4, GJS (GNOME Shell), oauth2 5.x, gettextrs 0.7 *(note: lnxdrive-ipc is a planned shared crate not yet published; D-Bus proxies are hand-rolled via zbus for now)*
 **Storage**: N/A (all state managed by daemon; preferences backed by `~/.config/lnxdrive/config.yaml` via D-Bus)
 **Testing**: cargo test (Rust), Meson test (C), manual + scripted (GJS), D-Bus mock daemon for all
 **Target Platform**: Linux with GNOME 45, 46, 47 (Fedora 40+, Ubuntu 24.04+)
 **Project Type**: Multi-component desktop integration (3 languages, unified Meson build)
 **Performance Goals**: Overlay icons < 500ms for 5000+ files (FR-027/SC-005), indicator updates < 3s (SC-003)
 **Constraints**: libnautilus-extension-4 only (FR-030), ESM modules only (GNOME 45+), i18n via gettext (FR-035)
-**Scale/Scope**: ~5K LOC Rust, ~1K LOC C, ~500 LOC GJS, 7 emblem icons, 35 functional requirements
+**Scale/Scope**: ~5K LOC Rust, ~1K LOC C, ~500 LOC GJS, 7 emblem icons, 37 functional requirements
 
 ## Constitution Check
 
@@ -38,7 +38,7 @@ The project constitution (`.specify/memory/constitution.md`) is an unfilled temp
 ```text
 specs/001-gnome-integration/
 ├── plan.md              # This file
-├── spec.md              # Feature specification (35 FRs, 6 user stories)
+├── spec.md              # Feature specification (37 FRs, 6 user stories)
 ├── research.md          # Phase 0: Technology research (6 decisions)
 ├── data-model.md        # Phase 1: Entity definitions and state transitions
 ├── quickstart.md        # Phase 1: Development setup guide
@@ -100,7 +100,7 @@ lnxdrive-gnome/
 │   │   │   ├── sync_page.rs            # Sync options + selective sync tree
 │   │   │   ├── advanced_page.rs        # Exclusions + bandwidth
 │   │   │   └── folder_tree.rs          # ListView + TreeListModel + CheckButton
-│   │   └── dbus_client.rs              # zbus proxy (reuses lnxdrive-ipc)
+│   │   └── dbus_client.rs              # zbus proxy (hand-rolled; lnxdrive-ipc pending)
 │   └── data/
 │       ├── com.enigmora.LNXDrive.Preferences.desktop.in
 │       ├── com.enigmora.LNXDrive.Preferences.metainfo.xml.in
@@ -160,7 +160,7 @@ lnxdrive-gnome/
 **Goal**: GTK4/libadwaita preferences application.
 
 1. **Rust project setup**: `Cargo.toml` with gtk4, libadwaita, zbus, lnxdrive-ipc, gettextrs. `main.rs` with gettext init and `AdwApplication` launch.
-2. **D-Bus client** (`dbus_client.rs`): Wrap `lnxdrive-ipc` proxy types. Spawn on `glib::MainContext`. Handle daemon connection/disconnection.
+2. **D-Bus client** (`dbus_client.rs`): Hand-rolled zbus proxies (lnxdrive-ipc integration deferred to cross-repo milestone). Spawn on `glib::MainContext`. Handle daemon connection/disconnection.
 3. **Account page** (`account_page.rs`): `AdwPreferencesPage` showing account email, display name, quota (progress bar), sign-out button.
 4. **Sync page** (`sync_page.rs`): `AdwSwitchRow` for auto-sync, `AdwComboRow` for conflict policy, `AdwSpinRow` for sync interval. Selective sync folder tree (see below).
 5. **Folder tree** (`folder_tree.rs`): `gtk::ListView` + `TreeListModel` + `TreeExpander` + `CheckButton`. Lazy loading via `GetRemoteFolderTree()` D-Bus call. Parent/child checkbox propagation.

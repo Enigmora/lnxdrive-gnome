@@ -2,7 +2,7 @@
 
 **Feature Branch**: `001-gnome-integration`
 **Created**: 2026-02-05
-**Status**: Draft
+**Status**: Implemented
 **Input**: User description: "Fase 3 - Integración GNOME: DBus service completo, extensión Nautilus (overlay icons + menú), panel de preferencias GTK4, GNOME Shell extension para status, integración con GNOME Online Accounts."
 
 ## User Scenarios & Testing *(mandatory)*
@@ -161,7 +161,7 @@ Un usuario que quiere configurar LNXDrive por primera vez va a Configuración de
 
 - **FR-013**: El sistema DEBE proveer un panel de preferencias con interfaz gráfica que siga las directrices de diseño de GNOME (HIG).
 - **FR-014**: El panel DEBE permitir configurar sincronización selectiva mediante una vista de árbol de carpetas con checkboxes.
-- **FR-015**: El panel DEBE permitir definir patrones de exclusión de archivos de forma visual (añadir, editar, eliminar patrones).
+- **FR-015**: El panel DEBE permitir definir patrones de exclusión de archivos de forma visual (añadir y eliminar patrones). *(Nota: edición in-line de patrones existentes diferida a iteración futura; el usuario puede eliminar y re-añadir.)*
 - **FR-016**: El panel DEBE permitir configurar la política de resolución de conflictos (preguntar siempre, mantener local, mantener remoto, mantener ambos).
 - **FR-017**: El panel DEBE permitir configurar límites de ancho de banda para subida y bajada.
 - **FR-018**: El panel DEBE permitir configurar el comportamiento de sincronización (automática o manual).
