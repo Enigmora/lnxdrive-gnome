@@ -8,7 +8,7 @@
  * showing sync progress, conflicts, quota, and quick actions.
  *
  * Implements: FR-009, FR-012, FR-025, FR-028
- * Compatibility: GNOME Shell 45, 46, 47
+ * Compatibility: GNOME Shell 45–49
  *
  * IMPORTANT: Do NOT import Gdk, Gtk, or Adw here.
  * Only Shell-safe imports are allowed in extension.js.

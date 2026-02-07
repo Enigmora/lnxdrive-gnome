@@ -123,6 +123,10 @@ export async function createProxies() {
             );
         });
 
+        // If the daemon is not running, the proxy has no name owner
+        if (sync.g_name_owner === null)
+            return null;
+
         const status = await new Promise((resolve, reject) => {
             StatusProxy(
                 Gio.DBus.session,

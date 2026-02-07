@@ -91,7 +91,7 @@ const OBJECT_PATH = '/org/enigmora/LNXDrive';
 // The dbus.js module is in the shell extension directory.  We import it
 // relative to this test file's location.
 const SCRIPT_DIR = GLib.path_get_dirname(
-    GLib.filename_from_uri(import.meta.url, null)[0]
+    GLib.filename_from_uri(import.meta.url)[0]
 );
 const EXTENSION_DIR = GLib.build_filenamev([
     SCRIPT_DIR, '..', 'shell-extension', 'lnxdrive-indicator@enigmora.com',

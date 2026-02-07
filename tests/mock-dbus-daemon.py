@@ -31,7 +31,7 @@ from typing import Any
 
 from dbus_next import Variant
 from dbus_next.aio import MessageBus
-from dbus_next.service import ServiceInterface, method, dbus_property, signal as dbus_signal
+from dbus_next.service import PropertyAccess, ServiceInterface, method, dbus_property, signal as dbus_signal
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -82,7 +82,11 @@ class FilesInterface(ServiceInterface):
     def _relative_path(self, path: str) -> str:
         """Normalise an absolute path to a sync-root-relative key."""
         try:
-            return str(Path(path).relative_to(self._sync_root))
+            rel = str(Path(path).relative_to(self._sync_root))
+            # Preserve trailing slash (Path strips it, but directory keys use it)
+            if path.endswith('/') and not rel.endswith('/'):
+                rel += '/'
+            return rel
         except ValueError:
             return path
 
@@ -109,21 +113,21 @@ class FilesInterface(ServiceInterface):
         return result
 
     @method()
-    def PinFile(self, path: "s") -> None:
+    def PinFile(self, path: "s"):
         rel = self._relative_path(path)
         log.info("Files.PinFile(%s) — pinning (was %s)", path, self._statuses.get(rel, "unknown"))
         self._statuses[rel] = "synced"
         self.FileStatusChanged(path, "synced")
 
     @method()
-    def UnpinFile(self, path: "s") -> None:
+    def UnpinFile(self, path: "s"):
         rel = self._relative_path(path)
         log.info("Files.UnpinFile(%s) — unpinning (was %s)", path, self._statuses.get(rel, "unknown"))
         self._statuses[rel] = "cloud-only"
         self.FileStatusChanged(path, "cloud-only")
 
     @method()
-    def SyncPath(self, path: "s") -> None:
+    def SyncPath(self, path: "s"):
         rel = self._relative_path(path)
         log.info("Files.SyncPath(%s) — triggering sync", path)
         self._statuses[rel] = "syncing"
@@ -161,22 +165,22 @@ class SyncInterface(ServiceInterface):
 
     # -- properties -------------------------------------------------------
 
-    @dbus_property()
+    @dbus_property(access=PropertyAccess.READ)
     def SyncStatus(self) -> "s":
         return self._sync_status
 
-    @dbus_property()
+    @dbus_property(access=PropertyAccess.READ)
     def LastSyncTime(self) -> "x":
         return self._last_sync_time
 
-    @dbus_property()
+    @dbus_property(access=PropertyAccess.READ)
     def PendingChanges(self) -> "u":
         return self._pending_changes
 
     # -- methods ----------------------------------------------------------
 
     @method()
-    def SyncNow(self) -> None:
+    def SyncNow(self):
         log.info("Sync.SyncNow() — starting sync cycle")
         if self._sync_status == "syncing":
             log.warning("Sync.SyncNow() — already syncing, ignoring")
@@ -189,7 +193,7 @@ class SyncInterface(ServiceInterface):
         self._syncing_task = loop.create_task(self._simulate_sync())
 
     @method()
-    def Pause(self) -> None:
+    def Pause(self):
         log.info("Sync.Pause()")
         if self._syncing_task and not self._syncing_task.done():
             self._syncing_task.cancel()
@@ -198,7 +202,7 @@ class SyncInterface(ServiceInterface):
         self.emit_properties_changed({"SyncStatus": self._sync_status})
 
     @method()
-    def Resume(self) -> None:
+    def Resume(self):
         log.info("Sync.Resume()")
         if self._sync_status == "paused":
             self._sync_status = "idle"
@@ -273,7 +277,7 @@ class StatusInterface(ServiceInterface):
 
     # -- properties -------------------------------------------------------
 
-    @dbus_property()
+    @dbus_property(access=PropertyAccess.READ)
     def ConnectionStatus(self) -> "s":
         return self._connection_status
 
@@ -318,30 +322,30 @@ class ManagerInterface(ServiceInterface):
 
     # -- properties -------------------------------------------------------
 
-    @dbus_property()
+    @dbus_property(access=PropertyAccess.READ)
     def Version(self) -> "s":
         return self._version
 
-    @dbus_property()
+    @dbus_property(access=PropertyAccess.READ)
     def IsRunning(self) -> "b":
         return self._is_running
 
     # -- methods ----------------------------------------------------------
 
     @method()
-    def Start(self) -> None:
+    def Start(self):
         log.info("Manager.Start()")
         self._is_running = True
         self.emit_properties_changed({"IsRunning": self._is_running})
 
     @method()
-    def Stop(self) -> None:
+    def Stop(self):
         log.info("Manager.Stop()")
         self._is_running = False
         self.emit_properties_changed({"IsRunning": self._is_running})
 
     @method()
-    def Restart(self) -> None:
+    def Restart(self):
         log.info("Manager.Restart()")
         self._is_running = False
         self.emit_properties_changed({"IsRunning": self._is_running})
@@ -413,7 +417,7 @@ class SettingsInterface(ServiceInterface):
         return self._config_yaml
 
     @method()
-    def SetConfig(self, yaml_str: "s") -> None:
+    def SetConfig(self, yaml_str: "s"):
         log.info("Settings.SetConfig(<yaml len=%d>)", len(yaml_str))
         self._config_yaml = yaml_str
         self.ConfigChanged("config")
@@ -424,7 +428,7 @@ class SettingsInterface(ServiceInterface):
         return self._selected_folders
 
     @method()
-    def SetSelectedFolders(self, folders: "as") -> None:
+    def SetSelectedFolders(self, folders: "as"):
         log.info("Settings.SetSelectedFolders(%s)", folders)
         self._selected_folders = list(folders)
         self.ConfigChanged("selected_folders")
@@ -435,7 +439,7 @@ class SettingsInterface(ServiceInterface):
         return self._exclusion_patterns
 
     @method()
-    def SetExclusionPatterns(self, patterns: "as") -> None:
+    def SetExclusionPatterns(self, patterns: "as"):
         log.info("Settings.SetExclusionPatterns(%s)", patterns)
         self._exclusion_patterns = list(patterns)
         self.ConfigChanged("exclusion_patterns")
@@ -484,7 +488,7 @@ class AuthInterface(ServiceInterface):
         return self._authenticated
 
     @method()
-    def Logout(self) -> None:
+    def Logout(self):
         log.info("Auth.Logout()")
         self._authenticated = False
         self.AuthStateChanged("disconnected")
