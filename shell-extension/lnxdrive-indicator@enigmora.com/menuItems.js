@@ -140,37 +140,131 @@ export function buildMenu(menu, proxies, gettext) {
     // =========================================================================
     const conflictsSection = new PopupMenu.PopupMenuSection();
 
-    const conflictsItem = new PopupMenu.PopupBaseMenuItem({reactive: false});
+    // Header label for conflicts count
+    const conflictsHeaderItem = new PopupMenu.PopupBaseMenuItem({reactive: false});
     const conflictsLabel = new St.Label({
         text: _('No conflicts'),
         y_align: Clutter.ActorAlign.CENTER,
     });
-    conflictsItem.add_child(conflictsLabel);
-    conflictsSection.addMenuItem(conflictsItem);
+    conflictsHeaderItem.add_child(conflictsLabel);
+    conflictsSection.addMenuItem(conflictsHeaderItem);
 
-    // Track conflict count locally
-    let conflictCount = 0;
+    // Track conflicts as an array of {path, type} (up to 5 displayed)
+    const MAX_VISIBLE_CONFLICTS = 5;
+    let conflictEntries = [];
+    let conflictMenuItems = [];
 
-    const conflictDetectedId = proxies.sync.connectSignal(
-        'ConflictDetected',
-        (_proxy, _sender, [path, _conflictType]) => {
-            conflictCount++;
-            /* Translators: %d is the number of conflicts detected */
-            conflictsLabel.set_text(
-                `${conflictCount} ${conflictCount !== 1 ? _('conflicts detected') : _('conflict detected')}`,
+    /**
+     * Rebuild the per-conflict menu entries from conflictEntries.
+     */
+    function _rebuildConflictItems() {
+        // Remove old items
+        for (const item of conflictMenuItems)
+            item.destroy();
+        conflictMenuItems = [];
+
+        if (conflictEntries.length === 0) {
+            conflictsLabel.set_text(_('No conflicts'));
+            return;
+        }
+
+        const count = conflictEntries.length;
+        conflictsLabel.set_text(
+            `${count} ${count !== 1 ? _('conflicts detected') : _('conflict detected')}`,
+        );
+
+        const visible = conflictEntries.slice(0, MAX_VISIBLE_CONFLICTS);
+        for (const entry of visible) {
+            const basename = entry.path.split('/').pop();
+            const item = new PopupMenu.PopupMenuItem(basename);
+            item.connect('activate', () => {
+                try {
+                    const appInfo = Gio.AppInfo.create_from_commandline(
+                        'lnxdrive-preferences --page conflicts',
+                        'LNXDrive Preferences',
+                        Gio.AppInfoCreateFlags.NONE,
+                    );
+                    appInfo.launch([], null);
+                } catch (e) {
+                    console.error(`[LNXDrive] Failed to launch preferences: ${e.message}`);
+                }
+            });
+            conflictsSection.addMenuItem(item);
+            conflictMenuItems.push(item);
+        }
+
+        if (count > MAX_VISIBLE_CONFLICTS) {
+            const moreItem = new PopupMenu.PopupMenuItem(
+                `${_('View all')} (${count - MAX_VISIBLE_CONFLICTS} ${_('more')}\u2026)`,
             );
-            console.log(`[LNXDrive] Conflict detected: ${path}`);
+            moreItem.connect('activate', () => {
+                try {
+                    const appInfo = Gio.AppInfo.create_from_commandline(
+                        'lnxdrive-preferences --page conflicts',
+                        'LNXDrive Preferences',
+                        Gio.AppInfoCreateFlags.NONE,
+                    );
+                    appInfo.launch([], null);
+                } catch (e) {
+                    console.error(`[LNXDrive] Failed to launch preferences: ${e.message}`);
+                }
+            });
+            conflictsSection.addMenuItem(moreItem);
+            conflictMenuItems.push(moreItem);
+        }
+    }
+
+    // Listen for new conflicts from the Conflicts interface
+    if (proxies.conflicts) {
+        const conflictDetectedId = proxies.conflicts.connectSignal(
+            'ConflictDetected',
+            (_proxy, _sender, [conflictJson]) => {
+                try {
+                    const data = JSON.parse(conflictJson);
+                    const path = data.item_path || data.item_id || 'unknown';
+                    conflictEntries.push({path, type: 'content-changed'});
+                    _rebuildConflictItems();
+                    console.log(`[LNXDrive] Conflict detected: ${path}`);
+                } catch (_e) {
+                    // Fallback: just increment
+                    conflictEntries.push({path: 'unknown', type: 'unknown'});
+                    _rebuildConflictItems();
+                }
+            },
+        );
+        signalIds.push({proxy: proxies.conflicts, id: conflictDetectedId});
+
+        // Listen for resolved conflicts
+        const conflictResolvedId = proxies.conflicts.connectSignal(
+            'ConflictResolved',
+            (_proxy, _sender, [conflictId, _strategy]) => {
+                // Remove from entries by ID if we have it, otherwise pop last
+                conflictEntries = conflictEntries.filter(e => e.id !== conflictId);
+                _rebuildConflictItems();
+                console.log(`[LNXDrive] Conflict resolved: ${conflictId}`);
+            },
+        );
+        signalIds.push({proxy: proxies.conflicts, id: conflictResolvedId});
+    }
+
+    // Also listen to the legacy ConflictDetected on Sync interface
+    const syncConflictDetectedId = proxies.sync.connectSignal(
+        'ConflictDetected',
+        (_proxy, _sender, [path, conflictType]) => {
+            conflictEntries.push({path, type: conflictType});
+            _rebuildConflictItems();
+            console.log(`[LNXDrive] Conflict detected (sync signal): ${path}`);
         },
     );
-    signalIds.push({proxy: proxies.sync, id: conflictDetectedId});
+    signalIds.push({proxy: proxies.sync, id: syncConflictDetectedId});
 
-    // Reset conflict count when sync completes successfully
+    // Reset conflict entries when sync completes without errors
     const conflictResetId = proxies.sync.connectSignal(
         'SyncCompleted',
         (_proxy, _sender, [_filesSynced, errors]) => {
             if (errors === 0) {
-                conflictCount = 0;
-                conflictsLabel.set_text(_('No conflicts'));
+                conflictEntries = [];
+                _rebuildConflictItems();
             }
         },
     );

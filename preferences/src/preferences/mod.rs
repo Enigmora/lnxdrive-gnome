@@ -25,6 +25,8 @@ use account_page::AccountPage;
 use advanced_page::AdvancedPage;
 use sync_page::SyncPage;
 
+use crate::conflicts::ConflictListPage;
+
 // ---------------------------------------------------------------------------
 // PreferencesDialog — adw::PreferencesDialog subclass
 // ---------------------------------------------------------------------------
@@ -78,13 +80,15 @@ impl PreferencesDialog {
             .dbus_client
             .replace(Some(dbus_client.clone()));
 
-        // Build the three pages.
+        // Build the four pages.
         let account_page = AccountPage::new(dbus_client);
         let sync_page = SyncPage::new(dbus_client);
+        let conflicts_page = ConflictListPage::new(dbus_client);
         let advanced_page = AdvancedPage::new(dbus_client);
 
         dialog.add(&account_page);
         dialog.add(&sync_page);
+        dialog.add(&conflicts_page);
         dialog.add(&advanced_page);
 
         dialog

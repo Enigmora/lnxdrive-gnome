@@ -338,6 +338,90 @@ if (noDaemonMode) {
                 `Version should be a string, got ${typeof version}`);
             assert(version.length > 0, 'Version should not be empty');
         });
+
+        // ----- Test: conflicts proxy exists and has correct interface -----
+        await runTest('conflicts proxy exists and has correct interface name', async () => {
+            const proxies = await dbusModule.createProxies();
+            assert(proxies !== null, 'proxies should not be null');
+
+            assert(proxies.conflicts !== null && proxies.conflicts !== undefined,
+                'proxies.conflicts should exist');
+            assertEqual(proxies.conflicts.g_interface_name,
+                'org.enigmora.LNXDrive.Conflicts',
+                'conflicts proxy interface name mismatch');
+        });
+
+        // ----- Test: conflicts proxy can call List -----
+        await runTest('conflicts proxy can call List', async () => {
+            const proxies = await dbusModule.createProxies();
+            assert(proxies !== null, 'proxies should not be null');
+
+            await new Promise((resolve, reject) => {
+                proxies.conflicts.ListRemote((result, error) => {
+                    if (error) {
+                        reject(new Error(`Conflicts.List failed: ${error.message}`));
+                        return;
+                    }
+
+                    const [jsonStr] = result;
+                    assert(typeof jsonStr === 'string',
+                        `List should return a string, got ${typeof jsonStr}`);
+
+                    const conflicts = JSON.parse(jsonStr);
+                    assert(Array.isArray(conflicts),
+                        'List result should be a JSON array');
+                    assert(conflicts.length > 0,
+                        'Mock daemon should have at least one conflict');
+
+                    // Check first conflict has expected fields
+                    const first = conflicts[0];
+                    assert(first.id !== undefined, 'conflict should have id');
+                    assert(first.item_id !== undefined, 'conflict should have item_id');
+                    assert(first.local_version !== undefined,
+                        'conflict should have local_version');
+                    assert(first.remote_version !== undefined,
+                        'conflict should have remote_version');
+                    resolve();
+                });
+            });
+        });
+
+        // ----- Test: conflicts proxy can call Resolve -----
+        await runTest('conflicts proxy can call Resolve', async () => {
+            const proxies = await dbusModule.createProxies();
+            assert(proxies !== null, 'proxies should not be null');
+
+            await new Promise((resolve, reject) => {
+                proxies.conflicts.ResolveRemote(
+                    'conflict-001', 'keep_local',
+                    (result, error) => {
+                        if (error) {
+                            reject(new Error(`Conflicts.Resolve failed: ${error.message}`));
+                            return;
+                        }
+
+                        const [success] = result;
+                        assert(typeof success === 'boolean',
+                            `Resolve should return a boolean, got ${typeof success}`);
+                        resolve();
+                    },
+                );
+            });
+        });
+
+        // ----- Test: conflicts proxy supports ConflictDetected signal -----
+        await runTest('conflicts proxy supports ConflictDetected signal subscription', async () => {
+            const proxies = await dbusModule.createProxies();
+            assert(proxies !== null, 'proxies should not be null');
+
+            const handlerId = proxies.conflicts.connectSignal(
+                'ConflictDetected', () => {},
+            );
+            assert(typeof handlerId === 'number' && handlerId > 0,
+                `connectSignal should return a positive handler ID, got ${handlerId}`);
+
+            proxies.conflicts.disconnectSignal(handlerId);
+        });
     }
 }
 

@@ -76,6 +76,39 @@ const StatusInterfaceXml = `
 </node>`;
 
 // ---------------------------------------------------------------------------
+// org.enigmora.LNXDrive.Conflicts
+// ---------------------------------------------------------------------------
+const ConflictsInterfaceXml = `
+<node>
+  <interface name="org.enigmora.LNXDrive.Conflicts">
+    <method name="List">
+      <arg type="s" direction="out" name="conflicts_json"/>
+    </method>
+    <method name="GetDetails">
+      <arg type="s" direction="in" name="id"/>
+      <arg type="s" direction="out" name="details_json"/>
+    </method>
+    <method name="Resolve">
+      <arg type="s" direction="in" name="id"/>
+      <arg type="s" direction="in" name="strategy"/>
+      <arg type="b" direction="out" name="success"/>
+    </method>
+    <method name="ResolveAll">
+      <arg type="s" direction="in" name="strategy"/>
+      <arg type="u" direction="out" name="count"/>
+    </method>
+
+    <signal name="ConflictDetected">
+      <arg type="s" name="conflict_json"/>
+    </signal>
+    <signal name="ConflictResolved">
+      <arg type="s" name="conflict_id"/>
+      <arg type="s" name="strategy"/>
+    </signal>
+  </interface>
+</node>`;
+
+// ---------------------------------------------------------------------------
 // org.enigmora.LNXDrive.Manager
 // ---------------------------------------------------------------------------
 const ManagerInterfaceXml = `
@@ -105,6 +138,7 @@ export async function createProxies() {
     try {
         const SyncProxy = Gio.DBusProxy.makeProxyWrapper(SyncInterfaceXml);
         const StatusProxy = Gio.DBusProxy.makeProxyWrapper(StatusInterfaceXml);
+        const ConflictsProxy = Gio.DBusProxy.makeProxyWrapper(ConflictsInterfaceXml);
         const ManagerProxy = Gio.DBusProxy.makeProxyWrapper(ManagerInterfaceXml);
 
         const sync = await new Promise((resolve, reject) => {
@@ -143,6 +177,22 @@ export async function createProxies() {
             );
         });
 
+        const conflicts = await new Promise((resolve, reject) => {
+            ConflictsProxy(
+                Gio.DBus.session,
+                BUS_NAME,
+                OBJECT_PATH,
+                (proxy, error) => {
+                    if (error)
+                        reject(error);
+                    else
+                        resolve(proxy);
+                },
+                null,
+                Gio.DBusProxyFlags.NONE,
+            );
+        });
+
         const manager = await new Promise((resolve, reject) => {
             ManagerProxy(
                 Gio.DBus.session,
@@ -159,7 +209,7 @@ export async function createProxies() {
             );
         });
 
-        return {sync, status, manager};
+        return {sync, status, conflicts, manager};
     } catch (e) {
         console.error(`[LNXDrive] Failed to create D-Bus proxies: ${e.message}`);
         return null;
