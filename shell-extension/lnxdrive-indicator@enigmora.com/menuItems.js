@@ -14,6 +14,7 @@
  */
 
 import Clutter from 'gi://Clutter';
+import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import St from 'gi://St';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
@@ -34,6 +35,34 @@ function _formatBytes(bytes) {
     const value = bytes / Math.pow(k, i);
 
     return `${value.toFixed(i > 0 ? 1 : 0)} ${units[i]}`;
+}
+
+/**
+ * Format a Unix timestamp into a human-readable relative time string.
+ *
+ * @param {number} timestamp - Unix timestamp in seconds (0 = never).
+ * @param {function(string): string} _ - Gettext function.
+ * @returns {string} Relative time string (e.g., "5 min ago", "2 hours ago").
+ */
+function _formatLastSyncTime(timestamp, _) {
+    if (timestamp === 0)
+        return _('Never synced');
+
+    const now = Math.floor(GLib.get_real_time() / 1000000);
+    const diff = now - timestamp;
+
+    if (diff < 60)
+        return _('Just now');
+    if (diff < 3600) {
+        const mins = Math.floor(diff / 60);
+        return `${mins} ${mins !== 1 ? _('min ago') : _('min ago')}`;
+    }
+    if (diff < 86400) {
+        const hours = Math.floor(diff / 3600);
+        return `${hours} ${hours !== 1 ? _('hours ago') : _('hour ago')}`;
+    }
+    const days = Math.floor(diff / 86400);
+    return `${days} ${days !== 1 ? _('days ago') : _('day ago')}`;
 }
 
 /**
@@ -77,6 +106,16 @@ export function buildMenu(menu, proxies, gettext) {
     pendingItem.add_child(pendingLabel);
     syncSection.addMenuItem(pendingItem);
 
+    // Last sync time
+    const lastSyncItem = new PopupMenu.PopupBaseMenuItem({reactive: false});
+    const lastSyncLabel = new St.Label({
+        text: _getLastSyncText(proxies.sync, _),
+        style_class: 'lnxdrive-status-label',
+        y_align: Clutter.ActorAlign.CENTER,
+    });
+    lastSyncItem.add_child(lastSyncLabel);
+    syncSection.addMenuItem(lastSyncItem);
+
     // Connect SyncProgress signal to update status
     const syncProgressId = proxies.sync.connectSignal(
         'SyncProgress',
@@ -108,18 +147,22 @@ export function buildMenu(menu, proxies, gettext) {
             else
                 statusLabel.set_text(_('Idle'));
 
-            // Refresh pending count
+            // Refresh pending count and last sync time
             pendingLabel.set_text(_getPendingText(proxies.sync, _));
+            lastSyncLabel.set_text(_getLastSyncText(proxies.sync, _));
         },
     );
     signalIds.push({proxy: proxies.sync, id: syncCompletedId});
 
-    // Update pending count on property changes
+    // Update labels on property changes
     const syncPropsId = proxies.sync.connect(
         'g-properties-changed',
         (_proxy, changed, _invalidated) => {
             if (changed.lookup_value('PendingChanges', null))
                 pendingLabel.set_text(_getPendingText(proxies.sync, _));
+
+            if (changed.lookup_value('LastSyncTime', null))
+                lastSyncLabel.set_text(_getLastSyncText(proxies.sync, _));
 
             const statusVariant = changed.lookup_value('SyncStatus', null);
             if (statusVariant)
@@ -140,37 +183,158 @@ export function buildMenu(menu, proxies, gettext) {
     // =========================================================================
     const conflictsSection = new PopupMenu.PopupMenuSection();
 
-    const conflictsItem = new PopupMenu.PopupBaseMenuItem({reactive: false});
+    // Header label for conflicts count
+    const conflictsHeaderItem = new PopupMenu.PopupBaseMenuItem({reactive: false});
     const conflictsLabel = new St.Label({
         text: _('No conflicts'),
         y_align: Clutter.ActorAlign.CENTER,
     });
-    conflictsItem.add_child(conflictsLabel);
-    conflictsSection.addMenuItem(conflictsItem);
+    conflictsHeaderItem.add_child(conflictsLabel);
+    conflictsSection.addMenuItem(conflictsHeaderItem);
 
-    // Track conflict count locally
-    let conflictCount = 0;
+    // Track conflicts as an array of {path, type} (up to 5 displayed)
+    const MAX_VISIBLE_CONFLICTS = 5;
+    let conflictEntries = [];
+    let conflictMenuItems = [];
 
-    const conflictDetectedId = proxies.sync.connectSignal(
-        'ConflictDetected',
-        (_proxy, _sender, [path, _conflictType]) => {
-            conflictCount++;
-            /* Translators: %d is the number of conflicts detected */
-            conflictsLabel.set_text(
-                `${conflictCount} ${conflictCount !== 1 ? _('conflicts detected') : _('conflict detected')}`,
+    /**
+     * Rebuild the per-conflict menu entries from conflictEntries.
+     */
+    function _rebuildConflictItems() {
+        // Remove old items
+        for (const item of conflictMenuItems)
+            item.destroy();
+        conflictMenuItems = [];
+
+        if (conflictEntries.length === 0) {
+            conflictsLabel.set_text(_('No conflicts'));
+            return;
+        }
+
+        const count = conflictEntries.length;
+        conflictsLabel.set_text(
+            `${count} ${count !== 1 ? _('conflicts detected') : _('conflict detected')}`,
+        );
+
+        const visible = conflictEntries.slice(0, MAX_VISIBLE_CONFLICTS);
+        for (const entry of visible) {
+            const basename = entry.path.split('/').pop();
+            const item = new PopupMenu.PopupMenuItem(basename);
+            item.connect('activate', () => {
+                try {
+                    const appInfo = Gio.AppInfo.create_from_commandline(
+                        'lnxdrive-preferences --page conflicts',
+                        'LNXDrive Preferences',
+                        Gio.AppInfoCreateFlags.NONE,
+                    );
+                    appInfo.launch([], null);
+                } catch (e) {
+                    console.error(`[LNXDrive] Failed to launch preferences: ${e.message}`);
+                }
+            });
+            conflictsSection.addMenuItem(item);
+            conflictMenuItems.push(item);
+        }
+
+        if (count > MAX_VISIBLE_CONFLICTS) {
+            const moreItem = new PopupMenu.PopupMenuItem(
+                `${_('View all')} (${count - MAX_VISIBLE_CONFLICTS} ${_('more')}\u2026)`,
             );
-            console.log(`[LNXDrive] Conflict detected: ${path}`);
+            moreItem.connect('activate', () => {
+                try {
+                    const appInfo = Gio.AppInfo.create_from_commandline(
+                        'lnxdrive-preferences --page conflicts',
+                        'LNXDrive Preferences',
+                        Gio.AppInfoCreateFlags.NONE,
+                    );
+                    appInfo.launch([], null);
+                } catch (e) {
+                    console.error(`[LNXDrive] Failed to launch preferences: ${e.message}`);
+                }
+            });
+            conflictsSection.addMenuItem(moreItem);
+            conflictMenuItems.push(moreItem);
+        }
+    }
+
+    // Listen for new conflicts from the Conflicts interface
+    if (proxies.conflicts) {
+        const conflictDetectedId = proxies.conflicts.connectSignal(
+            'ConflictDetected',
+            (_proxy, _sender, [conflictJson]) => {
+                try {
+                    const data = JSON.parse(conflictJson);
+                    const path = data.item_path || data.item_id || 'unknown';
+                    conflictEntries.push({id: data.id, path, type: 'content-changed'});
+                    _rebuildConflictItems();
+                    console.log(`[LNXDrive] Conflict detected: ${path}`);
+                } catch (_e) {
+                    // Fallback: just increment
+                    conflictEntries.push({id: null, path: 'unknown', type: 'unknown'});
+                    _rebuildConflictItems();
+                }
+            },
+        );
+        signalIds.push({proxy: proxies.conflicts, id: conflictDetectedId});
+
+        // Listen for resolved conflicts
+        const conflictResolvedId = proxies.conflicts.connectSignal(
+            'ConflictResolved',
+            (_proxy, _sender, [conflictId, _strategy]) => {
+                // Remove from entries by ID if we have it, otherwise pop last
+                conflictEntries = conflictEntries.filter(e => e.id !== conflictId);
+                _rebuildConflictItems();
+                console.log(`[LNXDrive] Conflict resolved: ${conflictId}`);
+            },
+        );
+        signalIds.push({proxy: proxies.conflicts, id: conflictResolvedId});
+    }
+
+    // Fetch initial conflicts from the daemon
+    if (proxies.conflicts) {
+        proxies.conflicts.ListRemote((result, error) => {
+            if (error) {
+                console.error(`[LNXDrive] Conflicts.List failed: ${error.message}`);
+                return;
+            }
+            try {
+                const [jsonStr] = result;
+                const conflicts = JSON.parse(jsonStr);
+                if (Array.isArray(conflicts) && conflicts.length > 0) {
+                    for (const c of conflicts) {
+                        const path = c.item_path || c.path || 'unknown';
+                        conflictEntries.push({
+                            id: c.id,
+                            path,
+                            type: 'content-changed',
+                        });
+                    }
+                    _rebuildConflictItems();
+                }
+            } catch (e) {
+                console.error(`[LNXDrive] Failed to parse conflicts: ${e.message}`);
+            }
+        });
+    }
+
+    // Also listen to the legacy ConflictDetected on Sync interface
+    const syncConflictDetectedId = proxies.sync.connectSignal(
+        'ConflictDetected',
+        (_proxy, _sender, [path, conflictType]) => {
+            conflictEntries.push({path, type: conflictType});
+            _rebuildConflictItems();
+            console.log(`[LNXDrive] Conflict detected (sync signal): ${path}`);
         },
     );
-    signalIds.push({proxy: proxies.sync, id: conflictDetectedId});
+    signalIds.push({proxy: proxies.sync, id: syncConflictDetectedId});
 
-    // Reset conflict count when sync completes successfully
+    // Reset conflict entries when sync completes without errors
     const conflictResetId = proxies.sync.connectSignal(
         'SyncCompleted',
         (_proxy, _sender, [_filesSynced, errors]) => {
             if (errors === 0) {
-                conflictCount = 0;
-                conflictsLabel.set_text(_('No conflicts'));
+                conflictEntries = [];
+                _rebuildConflictItems();
             }
         },
     );
@@ -184,9 +348,38 @@ export function buildMenu(menu, proxies, gettext) {
     menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
     // =========================================================================
-    // Section 3: Quota
+    // Section 3: Connection & Quota
     // =========================================================================
     const quotaSection = new PopupMenu.PopupMenuSection();
+
+    // Connection status
+    const connectionItem = new PopupMenu.PopupBaseMenuItem({reactive: false});
+    const connectionLabel = new St.Label({
+        text: _getConnectionText(proxies.status, _),
+        style_class: 'lnxdrive-status-label',
+        y_align: Clutter.ActorAlign.CENTER,
+    });
+    connectionItem.add_child(connectionLabel);
+    quotaSection.addMenuItem(connectionItem);
+
+    // Subscribe to ConnectionChanged signal
+    const connectionChangedId = proxies.status.connectSignal(
+        'ConnectionChanged',
+        (_proxy, _sender, [status]) => {
+            connectionLabel.set_text(_getConnectionText(proxies.status, _));
+        },
+    );
+    signalIds.push({proxy: proxies.status, id: connectionChangedId});
+
+    // Update connection label on property changes
+    const statusPropsId = proxies.status.connect(
+        'g-properties-changed',
+        (_proxy, changed, _invalidated) => {
+            if (changed.lookup_value('ConnectionStatus', null))
+                connectionLabel.set_text(_getConnectionText(proxies.status, _));
+        },
+    );
+    signalIds.push({proxy: proxies.status, id: statusPropsId});
 
     const quotaItem = new PopupMenu.PopupBaseMenuItem({reactive: false});
     const quotaBox = new St.BoxLayout({
@@ -406,5 +599,46 @@ function _getPendingText(syncProxy, _) {
         return `${pending} ${pending !== 1 ? _('pending changes') : _('pending change')}`;
     } catch (_e) {
         return `${_('Pending changes')}: ${_('unknown')}`;
+    }
+}
+
+/**
+ * Get the last sync time text from the proxy.
+ *
+ * @param {Gio.DBusProxy} syncProxy - The Sync interface proxy.
+ * @param {function(string): string} _ - Gettext function.
+ * @returns {string} Last sync time text for display.
+ */
+function _getLastSyncText(syncProxy, _) {
+    try {
+        const timestamp = syncProxy.LastSyncTime;
+        return `${_('Last sync')}: ${_formatLastSyncTime(timestamp, _)}`;
+    } catch (_e) {
+        return `${_('Last sync')}: ${_('unknown')}`;
+    }
+}
+
+/**
+ * Get the connection status text from the proxy.
+ *
+ * @param {Gio.DBusProxy} statusProxy - The Status interface proxy.
+ * @param {function(string): string} _ - Gettext function.
+ * @returns {string} Connection status text for display.
+ */
+function _getConnectionText(statusProxy, _) {
+    try {
+        const status = statusProxy.ConnectionStatus;
+        switch (status) {
+        case 'online':
+            return `\u25cf ${_('Online')}`;
+        case 'offline':
+            return `\u25cb ${_('Offline')}`;
+        case 'reconnecting':
+            return `\u25d4 ${_('Reconnecting\u2026')}`;
+        default:
+            return status || _('Unknown');
+        }
+    } catch (_e) {
+        return _('Unknown');
     }
 }

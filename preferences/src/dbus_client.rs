@@ -153,6 +153,36 @@ trait LnxdriveSync {
     async fn resume(&self) -> zbus::Result<()>;
 }
 
+/// org.enigmora.LNXDrive.Conflicts — conflict detection and resolution
+#[proxy(
+    interface = "org.enigmora.LNXDrive.Conflicts",
+    default_service = "org.enigmora.LNXDrive",
+    default_path = "/org/enigmora/LNXDrive"
+)]
+pub trait LnxdriveConflicts {
+    /// List all unresolved conflicts as a JSON array.
+    async fn list(&self) -> zbus::Result<String>;
+
+    /// Get details for a specific conflict by ID. Returns JSON.
+    async fn get_details(&self, id: &str) -> zbus::Result<String>;
+
+    /// Resolve a conflict with the given strategy ("keep_local", "keep_remote", "keep_both").
+    /// Returns true on success.
+    async fn resolve(&self, id: &str, strategy: &str) -> zbus::Result<bool>;
+
+    /// Resolve all unresolved conflicts with the given strategy.
+    /// Returns the number of conflicts resolved.
+    async fn resolve_all(&self, strategy: &str) -> zbus::Result<u32>;
+
+    /// Emitted when a new conflict is detected.
+    #[zbus(signal)]
+    fn conflict_detected(&self, conflict_json: &str) -> zbus::Result<()>;
+
+    /// Emitted when a conflict is resolved.
+    #[zbus(signal)]
+    fn conflict_resolved(&self, conflict_id: &str, strategy: &str) -> zbus::Result<()>;
+}
+
 // ---------------------------------------------------------------------------
 // High-level client
 // ---------------------------------------------------------------------------
@@ -287,5 +317,36 @@ impl DbusClient {
     pub async fn resume(&self) -> Result<(), DbusError> {
         let proxy = LnxdriveSyncProxy::new(&self.connection).await?;
         Ok(proxy.resume().await?)
+    }
+
+    // -- Conflicts ----------------------------------------------------------
+
+    /// List all unresolved conflicts. Returns a JSON array string.
+    pub async fn list_conflicts(&self) -> Result<String, DbusError> {
+        let proxy = LnxdriveConflictsProxy::new(&self.connection).await?;
+        Ok(proxy.list().await?)
+    }
+
+    /// Get details for a specific conflict by ID. Returns JSON string.
+    pub async fn get_conflict_details(&self, id: &str) -> Result<String, DbusError> {
+        let proxy = LnxdriveConflictsProxy::new(&self.connection).await?;
+        Ok(proxy.get_details(id).await?)
+    }
+
+    /// Resolve a conflict with the given strategy. Returns true on success.
+    pub async fn resolve_conflict(
+        &self,
+        id: &str,
+        strategy: &str,
+    ) -> Result<bool, DbusError> {
+        let proxy = LnxdriveConflictsProxy::new(&self.connection).await?;
+        Ok(proxy.resolve(id, strategy).await?)
+    }
+
+    /// Resolve all unresolved conflicts with the given strategy.
+    /// Returns the number of conflicts resolved.
+    pub async fn resolve_all_conflicts(&self, strategy: &str) -> Result<u32, DbusError> {
+        let proxy = LnxdriveConflictsProxy::new(&self.connection).await?;
+        Ok(proxy.resolve_all(strategy).await?)
     }
 }

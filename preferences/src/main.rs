@@ -4,6 +4,7 @@
 // and runs the GTK main loop.
 
 mod app;
+mod conflicts;
 mod dbus_client;
 mod onboarding;
 mod preferences;

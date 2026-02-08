@@ -95,7 +95,8 @@ impl LnxdriveWindow {
     /// Set the window content to a "connected" status page and present the
     /// preferences dialog on top. The underlying window content acts as the
     /// backdrop while the PreferencesDialog is open.
-    pub fn show_preferences(&self, dbus_client: &DbusClient) {
+    /// If `initial_page` is set, navigate directly to that page.
+    pub fn show_preferences(&self, dbus_client: &DbusClient, initial_page: Option<&str>) {
         // Set up window content behind the dialog.
         let status = adw::StatusPage::builder()
             .icon_name("emblem-ok-symbolic")
@@ -121,12 +122,12 @@ impl LnxdriveWindow {
         let client = dbus_client.clone();
         let win = self.clone();
         open_prefs_button.connect_clicked(move |_| {
-            let dialog = PreferencesDialog::new(&client);
+            let dialog = PreferencesDialog::new(&client, None);
             dialog.present(&win);
         });
 
         // Present the dialog immediately.
-        let dialog = PreferencesDialog::new(dbus_client);
+        let dialog = PreferencesDialog::new(dbus_client, initial_page);
         dialog.present(self);
     }
 

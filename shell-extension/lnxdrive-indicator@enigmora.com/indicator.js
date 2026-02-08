@@ -129,6 +129,35 @@ class LnxdriveIndicator extends PanelMenu.Button {
             },
         );
         this._signalIds.push({proxy: this._proxies.sync, id: nameOwnerId});
+
+        // --- Connection status monitoring ---
+        // When the daemon reports offline/reconnecting, update icon to offline state.
+        const connectionChangedId = this._proxies.status.connectSignal(
+            'ConnectionChanged',
+            (_proxy, _sender, [status]) => {
+                if (status === 'offline' || status === 'reconnecting')
+                    this._updateIconState('offline');
+                else if (status === 'online')
+                    this._refreshIconFromSyncStatus();
+            },
+        );
+        this._signalIds.push({proxy: this._proxies.status, id: connectionChangedId});
+
+        // Also monitor ConnectionStatus property changes
+        const connectionPropsId = this._proxies.status.connect(
+            'g-properties-changed',
+            (_proxy, changed, _invalidated) => {
+                const connVariant = changed.lookup_value('ConnectionStatus', null);
+                if (connVariant) {
+                    const connStatus = connVariant.unpack();
+                    if (connStatus === 'offline' || connStatus === 'reconnecting')
+                        this._updateIconState('offline');
+                    else if (connStatus === 'online')
+                        this._refreshIconFromSyncStatus();
+                }
+            },
+        );
+        this._signalIds.push({proxy: this._proxies.status, id: connectionPropsId});
     }
 
     /**
@@ -162,6 +191,20 @@ class LnxdriveIndicator extends PanelMenu.Button {
         default:
             console.warn(`[LNXDrive] Unknown sync status: ${status}`);
             break;
+        }
+    }
+
+    /**
+     * Re-read the current SyncStatus property and update the icon state.
+     * Used after connection is restored to reflect the actual sync state.
+     */
+    _refreshIconFromSyncStatus() {
+        try {
+            const status = this._proxies.sync.SyncStatus;
+            if (status)
+                this._updateIconState(status);
+        } catch (_e) {
+            // Property may not be available
         }
     }
 

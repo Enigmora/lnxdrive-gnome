@@ -25,6 +25,8 @@ use account_page::AccountPage;
 use advanced_page::AdvancedPage;
 use sync_page::SyncPage;
 
+use crate::conflicts::ConflictListPage;
+
 // ---------------------------------------------------------------------------
 // PreferencesDialog — adw::PreferencesDialog subclass
 // ---------------------------------------------------------------------------
@@ -66,8 +68,9 @@ glib::wrapper! {
 }
 
 impl PreferencesDialog {
-    /// Create the preferences dialog and populate it with the three pages.
-    pub fn new(dbus_client: &DbusClient) -> Self {
+    /// Create the preferences dialog and populate it with the four pages.
+    /// If `initial_page` matches a page name, navigate to it.
+    pub fn new(dbus_client: &DbusClient, initial_page: Option<&str>) -> Self {
         let dialog: Self = glib::Object::builder()
             .property("title", gettext("LNXDrive Preferences"))
             .property("search-enabled", true)
@@ -78,14 +81,27 @@ impl PreferencesDialog {
             .dbus_client
             .replace(Some(dbus_client.clone()));
 
-        // Build the three pages.
+        // Build the four pages.
         let account_page = AccountPage::new(dbus_client);
         let sync_page = SyncPage::new(dbus_client);
+        let conflicts_page = ConflictListPage::new(dbus_client);
         let advanced_page = AdvancedPage::new(dbus_client);
 
         dialog.add(&account_page);
         dialog.add(&sync_page);
+        dialog.add(&conflicts_page);
         dialog.add(&advanced_page);
+
+        // Navigate to initial page if specified
+        if let Some(page_name) = initial_page {
+            match page_name {
+                "account" => dialog.set_visible_page(&account_page),
+                "sync" => dialog.set_visible_page(&sync_page),
+                "conflicts" => dialog.set_visible_page(&conflicts_page),
+                "advanced" => dialog.set_visible_page(&advanced_page),
+                _ => {}
+            }
+        }
 
         dialog
     }

@@ -66,6 +66,9 @@ impl LnxdriveApp {
             return;
         }
 
+        // Parse --page argument for direct navigation
+        let initial_page = Self::parse_page_arg();
+
         let window = LnxdriveWindow::new(self);
 
         // Attempt D-Bus connection and auth check asynchronously.
@@ -73,7 +76,10 @@ impl LnxdriveApp {
         glib::MainContext::default().spawn_local(async move {
             match DbusClient::new().await {
                 Ok(client) => match client.is_authenticated().await {
-                    Ok(true) => win.show_preferences(&client),
+                    Ok(true) => win.show_preferences(
+                        &client,
+                        initial_page.as_deref(),
+                    ),
                     Ok(false) => win.show_onboarding(client),
                     Err(e) => win.show_dbus_error(&format!(
                         "{}: {}",
@@ -90,6 +96,18 @@ impl LnxdriveApp {
         });
 
         window.present();
+    }
+
+    /// Parse `--page <name>` from command-line arguments.
+    fn parse_page_arg() -> Option<String> {
+        let args: Vec<String> = std::env::args().collect();
+        let mut iter = args.iter();
+        while let Some(arg) = iter.next() {
+            if arg == "--page" {
+                return iter.next().cloned();
+            }
+        }
+        None
     }
 }
 

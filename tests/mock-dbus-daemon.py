@@ -2,11 +2,12 @@
 """
 Mock D-Bus Daemon for LNXDrive GNOME Integration Testing.
 
-Implements all 6 D-Bus interfaces of org.enigmora.LNXDrive on the session bus:
+Implements all 7 D-Bus interfaces of org.enigmora.LNXDrive on the session bus:
   - org.enigmora.LNXDrive.Files
   - org.enigmora.LNXDrive.Sync
   - org.enigmora.LNXDrive.Status
   - org.enigmora.LNXDrive.Manager
+  - org.enigmora.LNXDrive.Conflicts
   - org.enigmora.LNXDrive.Settings
   - org.enigmora.LNXDrive.Auth
 
@@ -360,7 +361,103 @@ class ManagerInterface(ServiceInterface):
 
 
 # ===================================================================
-# 5. org.enigmora.LNXDrive.Settings
+# 5. org.enigmora.LNXDrive.Conflicts
+# ===================================================================
+class ConflictsInterface(ServiceInterface):
+    """Mock implementation of org.enigmora.LNXDrive.Conflicts."""
+
+    def __init__(self, sync_root: str) -> None:
+        super().__init__("org.enigmora.LNXDrive.Conflicts")
+        self._sync_root = sync_root
+        # Pre-populated mock conflicts
+        self._conflicts: list[dict[str, Any]] = [
+            {
+                "id": "conflict-001",
+                "item_id": "item-budget",
+                "item_path": os.path.join(sync_root, "budget.xlsx"),
+                "detected_at": "2026-02-07T10:30:00Z",
+                "local_version": {
+                    "hash": "abc123def456",
+                    "size_bytes": 45_056,
+                    "modified_at": "2026-02-07T10:25:00Z",
+                },
+                "remote_version": {
+                    "hash": "789ghi012jkl",
+                    "size_bytes": 47_104,
+                    "modified_at": "2026-02-07T10:28:00Z",
+                },
+            },
+            {
+                "id": "conflict-002",
+                "item_id": "item-team-notes",
+                "item_path": os.path.join(sync_root, "shared/team-notes.docx"),
+                "detected_at": "2026-02-07T11:00:00Z",
+                "local_version": {
+                    "hash": "mno345pqr678",
+                    "size_bytes": 128_000,
+                    "modified_at": "2026-02-07T10:55:00Z",
+                },
+                "remote_version": {
+                    "hash": "stu901vwx234",
+                    "size_bytes": 130_048,
+                    "modified_at": "2026-02-07T10:58:00Z",
+                },
+            },
+        ]
+
+    @method()
+    def List(self) -> "s":
+        unresolved = [c for c in self._conflicts if "resolved" not in c]
+        result = json.dumps(unresolved)
+        log.info("Conflicts.List() -> %d conflicts", len(unresolved))
+        return result
+
+    @method()
+    def GetDetails(self, conflict_id: "s") -> "s":
+        for c in self._conflicts:
+            if c["id"] == conflict_id:
+                log.info("Conflicts.GetDetails(%s) -> found", conflict_id)
+                return json.dumps(c)
+        log.info("Conflicts.GetDetails(%s) -> not found", conflict_id)
+        return "{}"
+
+    @method()
+    def Resolve(self, conflict_id: "s", strategy: "s") -> "b":
+        for c in self._conflicts:
+            if c["id"] == conflict_id and "resolved" not in c:
+                c["resolved"] = True
+                c["resolution"] = strategy
+                log.info("Conflicts.Resolve(%s, %s) -> true", conflict_id, strategy)
+                self.ConflictResolved(conflict_id, strategy)
+                return True
+        log.info("Conflicts.Resolve(%s, %s) -> false", conflict_id, strategy)
+        return False
+
+    @method()
+    def ResolveAll(self, strategy: "s") -> "u":
+        count = 0
+        for c in self._conflicts:
+            if "resolved" not in c:
+                c["resolved"] = True
+                c["resolution"] = strategy
+                count += 1
+                self.ConflictResolved(c["id"], strategy)
+        log.info("Conflicts.ResolveAll(%s) -> %d resolved", strategy, count)
+        return count
+
+    # -- signals ----------------------------------------------------------
+
+    @dbus_signal()
+    def ConflictDetected(self, conflict_json) -> "s":
+        return conflict_json
+
+    @dbus_signal()
+    def ConflictResolved(self, conflict_id, strategy) -> "ss":
+        return [conflict_id, strategy]
+
+
+# ===================================================================
+# 6. org.enigmora.LNXDrive.Settings
 # ===================================================================
 
 _DEFAULT_CONFIG_YAML = """\
@@ -619,6 +716,7 @@ async def run(args: argparse.Namespace) -> None:
     sync_iface = SyncInterface()
     status_iface = StatusInterface()
     manager_iface = ManagerInterface()
+    conflicts_iface = ConflictsInterface(sync_root=args.sync_root)
     settings_iface = SettingsInterface(sync_root=args.sync_root)
     auth_iface = AuthInterface(authenticated=args.authenticated)
 
@@ -627,6 +725,7 @@ async def run(args: argparse.Namespace) -> None:
     bus.export(OBJECT_PATH, sync_iface)
     bus.export(OBJECT_PATH, status_iface)
     bus.export(OBJECT_PATH, manager_iface)
+    bus.export(OBJECT_PATH, conflicts_iface)
     bus.export(OBJECT_PATH, settings_iface)
     bus.export(OBJECT_PATH, auth_iface)
 
@@ -646,6 +745,7 @@ async def run(args: argparse.Namespace) -> None:
     log.info("  - org.enigmora.LNXDrive.Sync")
     log.info("  - org.enigmora.LNXDrive.Status")
     log.info("  - org.enigmora.LNXDrive.Manager")
+    log.info("  - org.enigmora.LNXDrive.Conflicts")
     log.info("  - org.enigmora.LNXDrive.Settings")
     log.info("  - org.enigmora.LNXDrive.Auth")
     log.info("Press Ctrl+C to stop.")
