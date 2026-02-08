@@ -196,7 +196,7 @@ impl ConfirmPage {
 
             // Success — switch to the preferences view.
             if let Some(ref win) = parent_window {
-                win.show_preferences(&dbus_client);
+                win.show_preferences(&dbus_client, None);
             }
         });
     }

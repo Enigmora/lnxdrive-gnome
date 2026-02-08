@@ -7,6 +7,8 @@
 
 use std::cell::RefCell;
 
+use futures_util::future::{AbortHandle, Abortable};
+use futures_util::StreamExt;
 use gettextrs::gettext;
 use gtk4::glib;
 use gtk4::prelude::*;
@@ -15,7 +17,7 @@ use libadwaita::prelude::*;
 
 use gtk4::subclass::prelude::ObjectSubclassIsExt;
 
-use crate::dbus_client::DbusClient;
+use crate::dbus_client::{DbusClient, LnxdriveConflictsProxy};
 
 use super::conflict_dialog::{ConflictDetailDialog, ConflictInfo};
 
@@ -32,6 +34,7 @@ mod imp {
         pub dbus_client: RefCell<Option<DbusClient>>,
         pub conflicts_group: RefCell<Option<adw::PreferencesGroup>>,
         pub empty_label: RefCell<Option<gtk4::Label>>,
+        pub signal_abort: RefCell<Option<AbortHandle>>,
     }
 
     impl Default for ConflictListPage {
@@ -40,6 +43,7 @@ mod imp {
                 dbus_client: RefCell::new(None),
                 conflicts_group: RefCell::new(None),
                 empty_label: RefCell::new(None),
+                signal_abort: RefCell::new(None),
             }
         }
     }
@@ -51,7 +55,13 @@ mod imp {
         type ParentType = adw::PreferencesPage;
     }
 
-    impl ObjectImpl for ConflictListPage {}
+    impl ObjectImpl for ConflictListPage {
+        fn dispose(&self) {
+            if let Some(handle) = self.signal_abort.borrow_mut().take() {
+                handle.abort();
+            }
+        }
+    }
     impl WidgetImpl for ConflictListPage {}
     impl PreferencesPageImpl for ConflictListPage {}
 }
@@ -78,8 +88,61 @@ impl ConflictListPage {
 
         page.build_ui();
         page.load_conflicts();
+        page.subscribe_signals();
 
         page
+    }
+
+    /// Subscribe to ConflictDetected and ConflictResolved D-Bus signals
+    /// so the list auto-refreshes in real-time.
+    fn subscribe_signals(&self) {
+        let client = match self.imp().dbus_client.borrow().clone() {
+            Some(c) => c,
+            None => return,
+        };
+
+        let (abort_handle, abort_registration) = AbortHandle::new_pair();
+        self.imp().signal_abort.replace(Some(abort_handle));
+
+        let page = self.clone();
+        glib::MainContext::default().spawn_local(async move {
+            let _ = Abortable::new(async move {
+                let connection = client.connection().clone();
+                let proxy = match LnxdriveConflictsProxy::new(&connection).await {
+                    Ok(p) => p,
+                    Err(e) => {
+                        eprintln!("Could not create conflicts proxy for signals: {e}");
+                        return;
+                    }
+                };
+
+                let detected = match proxy.receive_conflict_detected().await {
+                    Ok(s) => s,
+                    Err(e) => {
+                        eprintln!("Could not subscribe to ConflictDetected: {e}");
+                        return;
+                    }
+                };
+
+                let resolved = match proxy.receive_conflict_resolved().await {
+                    Ok(s) => s,
+                    Err(e) => {
+                        eprintln!("Could not subscribe to ConflictResolved: {e}");
+                        return;
+                    }
+                };
+
+                // Merge both streams: any signal triggers a refresh
+                let mut merged = futures_util::stream::select(
+                    detected.map(|_| ()),
+                    resolved.map(|_| ()),
+                );
+
+                while merged.next().await.is_some() {
+                    page.load_conflicts();
+                }
+            }, abort_registration).await;
+        });
     }
 
     fn build_ui(&self) {
@@ -146,16 +209,16 @@ impl ConflictListPage {
             None => return,
         };
 
-        // Clear existing rows: iterate children and remove. We remove by
-        // walking the group's children. PreferencesGroup wraps a ListBox.
-        // We remove all rows by iterating the underlying listbox.
-        // Since adw::PreferencesGroup doesn't expose remove_all, we track
-        // rows and remove them individually.
-        //
-        // The simplest approach: rebuild the group each time. For small
-        // conflict counts (<100) this is perfectly fine.
-        //
-        // Remove the group and re-add a fresh one.
+        // Update page title with conflict count
+        let count = conflicts.len();
+        if count > 0 {
+            self.set_title(&format!("{} ({})", gettext("Conflicts"), count));
+        } else {
+            self.set_title(&gettext("Conflicts"));
+        }
+
+        // Rebuild the group each time. For small conflict counts (<100)
+        // this is perfectly fine.
         self.remove(&group);
 
         let new_group = adw::PreferencesGroup::builder()
@@ -247,16 +310,38 @@ impl ConflictListPage {
             glib::MainContext::default().spawn_local(async move {
                 match client_clone.resolve_all_conflicts(&strategy).await {
                     Ok(count) => {
-                        eprintln!("Resolved {count} conflicts with strategy {strategy}");
                         page_clone.load_conflicts();
+                        page_clone.show_toast(&format!(
+                            "{} {} {}",
+                            count,
+                            gettext("conflicts resolved with"),
+                            gettext(&strategy),
+                        ));
                     }
                     Err(e) => {
-                        eprintln!("Failed to resolve all conflicts: {e}");
+                        page_clone.show_toast(&format!(
+                            "{}: {}",
+                            gettext("Failed to resolve conflicts"),
+                            e,
+                        ));
                     }
                 }
             });
         });
 
         dialog.present(Some(self));
+    }
+
+    /// Show a toast notification by walking up to the nearest adw::ToastOverlay
+    /// or adw::PreferencesDialog ancestor.
+    fn show_toast(&self, message: &str) {
+        let toast = adw::Toast::new(message);
+        // PreferencesDialog is a ToastOverlay itself, so add_toast works
+        if let Some(dialog) = self
+            .ancestor(adw::PreferencesDialog::static_type())
+            .and_then(|w| w.downcast::<adw::PreferencesDialog>().ok())
+        {
+            dialog.add_toast(toast);
+        }
     }
 }

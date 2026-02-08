@@ -135,6 +135,7 @@ mod imp {
     pub struct ConflictDetailDialog {
         pub dbus_client: RefCell<Option<DbusClient>>,
         pub conflict_id: RefCell<String>,
+        pub toast_overlay: RefCell<Option<adw::ToastOverlay>>,
     }
 
     impl Default for ConflictDetailDialog {
@@ -142,6 +143,7 @@ mod imp {
             Self {
                 dbus_client: RefCell::new(None),
                 conflict_id: RefCell::new(String::new()),
+                toast_overlay: RefCell::new(None),
             }
         }
     }
@@ -315,9 +317,13 @@ impl ConflictDetailDialog {
 
         toolbar_view.set_content(Some(&scrolled));
 
+        let toast_overlay = adw::ToastOverlay::new();
+        toast_overlay.set_child(Some(&toolbar_view));
+        self.imp().toast_overlay.replace(Some(toast_overlay.clone()));
+
         self.set_content_width(600);
         self.set_content_height(500);
-        self.set_child(Some(&toolbar_view));
+        self.set_child(Some(&toast_overlay));
     }
 
     fn resolve_with_strategy(&self, strategy: &str) {
@@ -336,12 +342,26 @@ impl ConflictDetailDialog {
                     dialog.close();
                 }
                 Ok(false) => {
-                    eprintln!("Failed to resolve conflict {conflict_id}: daemon returned false");
+                    dialog.show_toast(&format!(
+                        "{}: {}",
+                        gettext("Resolution failed"),
+                        gettext("daemon returned false"),
+                    ));
                 }
                 Err(e) => {
-                    eprintln!("D-Bus error resolving conflict {conflict_id}: {e}");
+                    dialog.show_toast(&format!(
+                        "{}: {}",
+                        gettext("Resolution error"),
+                        e,
+                    ));
                 }
             }
         });
+    }
+
+    fn show_toast(&self, message: &str) {
+        if let Some(ref overlay) = *self.imp().toast_overlay.borrow() {
+            overlay.add_toast(adw::Toast::new(message));
+        }
     }
 }

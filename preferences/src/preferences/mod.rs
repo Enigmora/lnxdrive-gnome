@@ -68,8 +68,9 @@ glib::wrapper! {
 }
 
 impl PreferencesDialog {
-    /// Create the preferences dialog and populate it with the three pages.
-    pub fn new(dbus_client: &DbusClient) -> Self {
+    /// Create the preferences dialog and populate it with the four pages.
+    /// If `initial_page` matches a page name, navigate to it.
+    pub fn new(dbus_client: &DbusClient, initial_page: Option<&str>) -> Self {
         let dialog: Self = glib::Object::builder()
             .property("title", gettext("LNXDrive Preferences"))
             .property("search-enabled", true)
@@ -90,6 +91,17 @@ impl PreferencesDialog {
         dialog.add(&sync_page);
         dialog.add(&conflicts_page);
         dialog.add(&advanced_page);
+
+        // Navigate to initial page if specified
+        if let Some(page_name) = initial_page {
+            match page_name {
+                "account" => dialog.set_visible_page(&account_page),
+                "sync" => dialog.set_visible_page(&sync_page),
+                "conflicts" => dialog.set_visible_page(&conflicts_page),
+                "advanced" => dialog.set_visible_page(&advanced_page),
+                _ => {}
+            }
+        }
 
         dialog
     }

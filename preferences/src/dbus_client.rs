@@ -159,7 +159,7 @@ trait LnxdriveSync {
     default_service = "org.enigmora.LNXDrive",
     default_path = "/org/enigmora/LNXDrive"
 )]
-trait LnxdriveConflicts {
+pub trait LnxdriveConflicts {
     /// List all unresolved conflicts as a JSON array.
     async fn list(&self) -> zbus::Result<String>;
 
