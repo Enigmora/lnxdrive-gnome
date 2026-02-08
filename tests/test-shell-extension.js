@@ -422,7 +422,363 @@ if (noDaemonMode) {
 
             proxies.conflicts.disconnectSignal(handlerId);
         });
+
+        // ----- Test: status proxy has ConnectionStatus property -----
+        await runTest('status proxy can read ConnectionStatus property', async () => {
+            const proxies = await dbusModule.createProxies();
+            assert(proxies !== null, 'proxies should not be null');
+
+            const connStatus = proxies.status.ConnectionStatus;
+            assert(typeof connStatus === 'string',
+                `ConnectionStatus should be a string, got ${typeof connStatus}`);
+
+            const validStatuses = ['online', 'offline', 'reconnecting'];
+            assert(validStatuses.includes(connStatus),
+                `ConnectionStatus '${connStatus}' not in valid set: ${validStatuses.join(', ')}`);
+        });
+
+        // ----- Test: status proxy supports ConnectionChanged signal -----
+        await runTest('status proxy supports ConnectionChanged signal subscription', async () => {
+            const proxies = await dbusModule.createProxies();
+            assert(proxies !== null, 'proxies should not be null');
+
+            const handlerId = proxies.status.connectSignal(
+                'ConnectionChanged', () => {},
+            );
+            assert(typeof handlerId === 'number' && handlerId > 0,
+                `connectSignal should return a positive handler ID, got ${handlerId}`);
+
+            proxies.status.disconnectSignal(handlerId);
+        });
+
+        // ----- Test: sync proxy has LastSyncTime property -----
+        await runTest('sync proxy can read LastSyncTime property', async () => {
+            const proxies = await dbusModule.createProxies();
+            assert(proxies !== null, 'proxies should not be null');
+
+            const lastSync = proxies.sync.LastSyncTime;
+            assert(typeof lastSync === 'number' || typeof lastSync === 'bigint',
+                `LastSyncTime should be a number, got ${typeof lastSync}`);
+        });
+
+        // ----- Test: sync proxy has PendingChanges property -----
+        await runTest('sync proxy can read PendingChanges property', async () => {
+            const proxies = await dbusModule.createProxies();
+            assert(proxies !== null, 'proxies should not be null');
+
+            const pending = proxies.sync.PendingChanges;
+            assert(typeof pending === 'number' || typeof pending === 'bigint',
+                `PendingChanges should be a number, got ${typeof pending}`);
+        });
+
+        // ----- Test: sync proxy can call SyncNow -----
+        await runTest('sync proxy can call SyncNow', async () => {
+            const proxies = await dbusModule.createProxies();
+            assert(proxies !== null, 'proxies should not be null');
+
+            await new Promise((resolve, reject) => {
+                proxies.sync.SyncNowRemote((_, error) => {
+                    if (error)
+                        reject(new Error(`SyncNow failed: ${error.message}`));
+                    else
+                        resolve();
+                });
+            });
+        });
+
+        // ----- Test: sync proxy can call Pause -----
+        await runTest('sync proxy can call Pause', async () => {
+            const proxies = await dbusModule.createProxies();
+            assert(proxies !== null, 'proxies should not be null');
+
+            await new Promise((resolve, reject) => {
+                proxies.sync.PauseRemote((_, error) => {
+                    if (error)
+                        reject(new Error(`Pause failed: ${error.message}`));
+                    else
+                        resolve();
+                });
+            });
+        });
+
+        // ----- Test: sync proxy can call Resume -----
+        await runTest('sync proxy can call Resume', async () => {
+            const proxies = await dbusModule.createProxies();
+            assert(proxies !== null, 'proxies should not be null');
+
+            await new Promise((resolve, reject) => {
+                proxies.sync.ResumeRemote((_, error) => {
+                    if (error)
+                        reject(new Error(`Resume failed: ${error.message}`));
+                    else
+                        resolve();
+                });
+            });
+        });
+
+        // ----- Test: status proxy can call GetAccountInfo -----
+        await runTest('status proxy can call GetAccountInfo', async () => {
+            const proxies = await dbusModule.createProxies();
+            assert(proxies !== null, 'proxies should not be null');
+
+            await new Promise((resolve, reject) => {
+                proxies.status.GetAccountInfoRemote((result, error) => {
+                    if (error) {
+                        reject(new Error(`GetAccountInfo failed: ${error.message}`));
+                        return;
+                    }
+
+                    const [info] = result;
+                    assert(typeof info === 'object',
+                        `GetAccountInfo should return an object, got ${typeof info}`);
+                    // The mock returns {email, display_name, provider}
+                    assert(info.email !== undefined,
+                        'GetAccountInfo result should contain email');
+                    resolve();
+                });
+            });
+        });
+
+        // ----- Test: manager proxy can call GetStatus -----
+        await runTest('manager proxy can call GetStatus', async () => {
+            const proxies = await dbusModule.createProxies();
+            assert(proxies !== null, 'proxies should not be null');
+
+            await new Promise((resolve, reject) => {
+                proxies.manager.GetStatusRemote((result, error) => {
+                    if (error) {
+                        reject(new Error(`GetStatus failed: ${error.message}`));
+                        return;
+                    }
+
+                    const [status] = result;
+                    assert(typeof status === 'string',
+                        `GetStatus should return a string, got ${typeof status}`);
+                    const validStatuses = ['running', 'stopped'];
+                    assert(validStatuses.includes(status),
+                        `GetStatus '${status}' not in valid set: ${validStatuses.join(', ')}`);
+                    resolve();
+                });
+            });
+        });
+
+        // ----- Test: manager proxy can read IsRunning property -----
+        await runTest('manager proxy can read IsRunning property', async () => {
+            const proxies = await dbusModule.createProxies();
+            assert(proxies !== null, 'proxies should not be null');
+
+            const isRunning = proxies.manager.IsRunning;
+            assert(typeof isRunning === 'boolean',
+                `IsRunning should be a boolean, got ${typeof isRunning}`);
+        });
+
+        // ----- Test: conflicts proxy can call GetDetails -----
+        await runTest('conflicts proxy can call GetDetails', async () => {
+            const proxies = await dbusModule.createProxies();
+            assert(proxies !== null, 'proxies should not be null');
+
+            await new Promise((resolve, reject) => {
+                proxies.conflicts.GetDetailsRemote(
+                    'conflict-001',
+                    (result, error) => {
+                        if (error) {
+                            reject(new Error(`GetDetails failed: ${error.message}`));
+                            return;
+                        }
+
+                        const [jsonStr] = result;
+                        assert(typeof jsonStr === 'string',
+                            `GetDetails should return a string, got ${typeof jsonStr}`);
+
+                        const details = JSON.parse(jsonStr);
+                        assert(details.id === 'conflict-001',
+                            `Expected conflict id 'conflict-001', got '${details.id}'`);
+                        resolve();
+                    },
+                );
+            });
+        });
+
+        // ----- Test: conflicts proxy can call ResolveAll -----
+        await runTest('conflicts proxy can call ResolveAll', async () => {
+            const proxies = await dbusModule.createProxies();
+            assert(proxies !== null, 'proxies should not be null');
+
+            await new Promise((resolve, reject) => {
+                proxies.conflicts.ResolveAllRemote(
+                    'keep_local',
+                    (result, error) => {
+                        if (error) {
+                            reject(new Error(`ResolveAll failed: ${error.message}`));
+                            return;
+                        }
+
+                        const [count] = result;
+                        assert(typeof count === 'number',
+                            `ResolveAll should return a number, got ${typeof count}`);
+                        resolve();
+                    },
+                );
+            });
+        });
+
+        // ----- Test: status proxy supports QuotaChanged signal -----
+        await runTest('status proxy supports QuotaChanged signal subscription', async () => {
+            const proxies = await dbusModule.createProxies();
+            assert(proxies !== null, 'proxies should not be null');
+
+            const handlerId = proxies.status.connectSignal(
+                'QuotaChanged', () => {},
+            );
+            assert(typeof handlerId === 'number' && handlerId > 0,
+                `connectSignal should return a positive handler ID, got ${handlerId}`);
+
+            proxies.status.disconnectSignal(handlerId);
+        });
+
+        // ----- Test: sync proxy supports SyncCompleted signal -----
+        await runTest('sync proxy supports SyncCompleted signal subscription', async () => {
+            const proxies = await dbusModule.createProxies();
+            assert(proxies !== null, 'proxies should not be null');
+
+            const handlerId = proxies.sync.connectSignal(
+                'SyncCompleted', () => {},
+            );
+            assert(typeof handlerId === 'number' && handlerId > 0,
+                `connectSignal should return a positive handler ID, got ${handlerId}`);
+
+            proxies.sync.disconnectSignal(handlerId);
+        });
+
+        // ----- Test: sync proxy supports SyncProgress signal -----
+        await runTest('sync proxy supports SyncProgress signal subscription', async () => {
+            const proxies = await dbusModule.createProxies();
+            assert(proxies !== null, 'proxies should not be null');
+
+            const handlerId = proxies.sync.connectSignal(
+                'SyncProgress', () => {},
+            );
+            assert(typeof handlerId === 'number' && handlerId > 0,
+                `connectSignal should return a positive handler ID, got ${handlerId}`);
+
+            proxies.sync.disconnectSignal(handlerId);
+        });
+
+        // ----- Test: conflicts proxy supports ConflictResolved signal -----
+        await runTest('conflicts proxy supports ConflictResolved signal subscription', async () => {
+            const proxies = await dbusModule.createProxies();
+            assert(proxies !== null, 'proxies should not be null');
+
+            const handlerId = proxies.conflicts.connectSignal(
+                'ConflictResolved', () => {},
+            );
+            assert(typeof handlerId === 'number' && handlerId > 0,
+                `connectSignal should return a positive handler ID, got ${handlerId}`);
+
+            proxies.conflicts.disconnectSignal(handlerId);
+        });
     }
+}
+
+// ---------------------------------------------------------------------------
+// Performance benchmarks (SC-005: <500ms for 5000+ files)
+// ---------------------------------------------------------------------------
+
+if (daemonAvailable && !noDaemonMode) {
+    print('');
+    print('Performance Benchmarks');
+    print('-------------------------------------');
+
+    // ----- Benchmark: GetBatchFileStatus with 5000 files -----
+    await runTest('PERF: GetBatchFileStatus 5000 files completes in <500ms (SC-005)', async () => {
+        // Create a Files proxy via raw Gio (not part of dbus.js createProxies)
+        const FilesXml = `
+        <node>
+          <interface name="org.enigmora.LNXDrive.Files">
+            <method name="GetBatchFileStatus">
+              <arg type="as" direction="in" name="paths"/>
+              <arg type="a{ss}" direction="out" name="statuses"/>
+            </method>
+          </interface>
+        </node>`;
+
+        const FilesProxy = Gio.DBusProxy.makeProxyWrapper(FilesXml);
+        const filesProxy = await new Promise((resolve, reject) => {
+            FilesProxy(
+                Gio.DBus.session,
+                BUS_NAME,
+                OBJECT_PATH,
+                (proxy, error) => {
+                    if (error) reject(error);
+                    else resolve(proxy);
+                },
+                null,
+                Gio.DBusProxyFlags.NONE,
+            );
+        });
+
+        // Generate 5000 file paths
+        const paths = [];
+        for (let i = 0; i < 5000; i++)
+            paths.push(`/home/user/OneDrive/file-${i}.txt`);
+
+        const startTime = GLib.get_monotonic_time();
+
+        await new Promise((resolve, reject) => {
+            filesProxy.GetBatchFileStatusRemote(paths, (result, error) => {
+                if (error) {
+                    reject(new Error(`GetBatchFileStatus failed: ${error.message}`));
+                    return;
+                }
+                resolve(result);
+            });
+        });
+
+        const elapsed = (GLib.get_monotonic_time() - startTime) / 1000; // microseconds to ms
+        print(`        Elapsed: ${elapsed.toFixed(1)}ms for 5000 files`);
+
+        assert(elapsed < 500,
+            `GetBatchFileStatus took ${elapsed.toFixed(1)}ms, exceeds SC-005 limit of 500ms`);
+    });
+
+    // ----- Benchmark: Proxy creation latency -----
+    await runTest('PERF: createProxies completes in <200ms', async () => {
+        const startTime = GLib.get_monotonic_time();
+        const proxies = await dbusModule.createProxies();
+        const elapsed = (GLib.get_monotonic_time() - startTime) / 1000;
+
+        assert(proxies !== null, 'proxies should not be null');
+        print(`        Elapsed: ${elapsed.toFixed(1)}ms for proxy creation`);
+
+        assert(elapsed < 200,
+            `createProxies took ${elapsed.toFixed(1)}ms, should be <200ms`);
+    });
+
+    // ----- Benchmark: Conflicts.List with JSON parsing -----
+    await runTest('PERF: Conflicts.List + JSON parse completes in <100ms', async () => {
+        const proxies = await dbusModule.createProxies();
+        assert(proxies !== null, 'proxies should not be null');
+
+        const startTime = GLib.get_monotonic_time();
+
+        await new Promise((resolve, reject) => {
+            proxies.conflicts.ListRemote((result, error) => {
+                if (error) {
+                    reject(new Error(`Conflicts.List failed: ${error.message}`));
+                    return;
+                }
+                const [jsonStr] = result;
+                JSON.parse(jsonStr); // parse overhead included
+                resolve();
+            });
+        });
+
+        const elapsed = (GLib.get_monotonic_time() - startTime) / 1000;
+        print(`        Elapsed: ${elapsed.toFixed(1)}ms for List + parse`);
+
+        assert(elapsed < 100,
+            `Conflicts.List + parse took ${elapsed.toFixed(1)}ms, should be <100ms`);
+    });
 }
 
 // ---------------------------------------------------------------------------
