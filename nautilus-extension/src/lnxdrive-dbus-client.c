@@ -422,7 +422,7 @@ fetch_sync_root_async (LnxdriveDbusClient *self)
         NULL,
         LNXDRIVE_DBUS_BUS_NAME,
         LNXDRIVE_DBUS_OBJECT_PATH,
-        "org.enigmora.LNXDrive.Settings",
+        "com.enigmora.LNXDrive.Settings",
         NULL,
         on_settings_proxy_ready,
         self);

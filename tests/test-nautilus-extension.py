@@ -3,7 +3,7 @@
 Integration tests for the LNXDrive Nautilus extension D-Bus client.
 
 Starts the mock D-Bus daemon as a subprocess, then uses gi.repository.Gio to
-create GDBusProxy objects and exercise the org.enigmora.LNXDrive.Files interface.
+create GDBusProxy objects and exercise the com.enigmora.LNXDrive.Files interface.
 
 Usage:
     python3 tests/test-nautilus-extension.py
@@ -32,12 +32,12 @@ from gi.repository import Gio, GLib  # noqa: E402
 # ---------------------------------------------------------------------------
 # Constants matching the mock daemon
 # ---------------------------------------------------------------------------
-BUS_NAME = "org.enigmora.LNXDrive"
-OBJECT_PATH = "/org/enigmora/LNXDrive"
-IFACE_FILES = "org.enigmora.LNXDrive.Files"
-IFACE_SETTINGS = "org.enigmora.LNXDrive.Settings"
-IFACE_SYNC = "org.enigmora.LNXDrive.Sync"
-IFACE_STATUS = "org.enigmora.LNXDrive.Status"
+BUS_NAME = "com.enigmora.LNXDrive"
+OBJECT_PATH = "/com/enigmora/LNXDrive"
+IFACE_FILES = "com.enigmora.LNXDrive.Files"
+IFACE_SETTINGS = "com.enigmora.LNXDrive.Settings"
+IFACE_SYNC = "com.enigmora.LNXDrive.Sync"
+IFACE_STATUS = "com.enigmora.LNXDrive.Status"
 
 # Path to the mock daemon script (relative to this test file)
 TESTS_DIR = Path(__file__).resolve().parent
