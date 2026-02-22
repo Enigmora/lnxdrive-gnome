@@ -137,6 +137,57 @@ path_is_under_sync_root (const char *path, const char *sync_root)
 }
 
 /* ---------------------------------------------------------------------------
+ * Tracked files: maps absolute path -> NautilusFileInfo* (ref'd).
+ *
+ * Whenever update_file_info() is called for a file inside the sync root,
+ * we store a reference to its NautilusFileInfo.  When the D-Bus client
+ * emits "file-status-changed" we look up the entry and call
+ * nautilus_file_info_invalidate_extension_info(), which makes Nautilus
+ * re-query update_file_info() for that specific file.
+ * ---------------------------------------------------------------------------*/
+static GHashTable *tracked_files  = NULL;   /* char* -> NautilusFileInfo* */
+static gboolean    tracking_init  = FALSE;
+
+/* Signal handler: D-Bus client emits "file-status-changed(path, status)". */
+static void
+on_file_status_changed_cb (LnxdriveDbusClient *client,
+                           const char         *path,
+                           const char         *status,
+                           gpointer            user_data)
+{
+    (void) client;
+    (void) status;
+    (void) user_data;
+
+    if (tracked_files == NULL)
+        return;
+
+    NautilusFileInfo *file = g_hash_table_lookup (tracked_files, path);
+    if (file != NULL)
+    {
+        g_debug ("LNXDrive: invalidating extension info for %s", path);
+        nautilus_file_info_invalidate_extension_info (file);
+    }
+}
+
+/* Lazy initialization: create the hash table and connect the signal once. */
+static void
+ensure_tracking_initialized (void)
+{
+    if (tracking_init)
+        return;
+
+    tracking_init = TRUE;
+
+    tracked_files = g_hash_table_new_full (g_str_hash, g_str_equal,
+                                            g_free, g_object_unref);
+
+    LnxdriveDbusClient *client = lnxdrive_dbus_client_get_default ();
+    g_signal_connect (client, "file-status-changed",
+                      G_CALLBACK (on_file_status_changed_cb), NULL);
+}
+
+/* ---------------------------------------------------------------------------
  * NautilusInfoProvider interface implementation
  * ---------------------------------------------------------------------------*/
 static NautilusOperationResult
@@ -148,6 +199,9 @@ lnxdrive_info_provider_update_file_info (NautilusInfoProvider     *provider,
     (void) provider;
     (void) update_complete;
     (void) handle;
+
+    /* Ensure the tracking table and signal handler are set up. */
+    ensure_tracking_initialized ();
 
     /* Step 1: Get the local filesystem path from the file URI. */
     g_autofree char *uri  = nautilus_file_info_get_uri (file);
@@ -180,7 +234,13 @@ lnxdrive_info_provider_update_file_info (NautilusInfoProvider     *provider,
      * per-file sync timestamps in a future iteration. */
     nautilus_file_info_add_string_attribute (file, "LNXDrive::last_sync", "\xE2\x80\x94");
 
-    /* Step 6: Return COMPLETE since we use the cache (synchronous).
+    /* Step 6: Track this file for future invalidation.
+     * We replace any previous entry (which unrefs the old NautilusFileInfo). */
+    g_hash_table_replace (tracked_files,
+                          g_strdup (path),
+                          g_object_ref (file));
+
+    /* Step 7: Return COMPLETE since we use the cache (synchronous).
      * If the cache did not contain the entry the status will be "unknown"
      * and will refresh once the daemon sends a FileStatusChanged signal. */
     return NAUTILUS_OPERATION_COMPLETE;
