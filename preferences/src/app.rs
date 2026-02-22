@@ -7,6 +7,7 @@ use gettextrs::gettext;
 use gtk4::gio;
 use gtk4::glib;
 use gtk4::prelude::*;
+use gtk4::subclass::prelude::ObjectSubclassIsExt;
 use libadwaita as adw;
 use libadwaita::prelude::*;
 
@@ -15,11 +16,14 @@ use crate::window::LnxdriveWindow;
 
 mod imp {
     use super::*;
+    use std::cell::OnceCell;
     use gtk4::subclass::prelude::*;
     use libadwaita::subclass::prelude::*;
 
     #[derive(Default)]
-    pub struct LnxdriveApp;
+    pub struct LnxdriveApp {
+        pub initial_page: OnceCell<Option<String>>,
+    }
 
     #[glib::object_subclass]
     impl ObjectSubclass for LnxdriveApp {
@@ -34,6 +38,17 @@ mod imp {
         fn activate(&self) {
             let app = self.obj();
             app.on_activate();
+        }
+
+        fn command_line(&self, command_line: &gio::ApplicationCommandLine) -> glib::ExitCode {
+            let page = command_line
+                .options_dict()
+                .lookup::<String>("page")
+                .ok()
+                .flatten();
+            let _ = self.initial_page.set(page);
+            self.obj().activate();
+            glib::ExitCode::SUCCESS
         }
     }
 
@@ -52,10 +67,22 @@ impl LnxdriveApp {
     const APP_ID: &'static str = "com.enigmora.LNXDrive.Preferences";
 
     pub fn new() -> Self {
-        glib::Object::builder()
+        let app: Self = glib::Object::builder()
             .property("application-id", Self::APP_ID)
-            .property("flags", gio::ApplicationFlags::default())
-            .build()
+            .property("flags", gio::ApplicationFlags::HANDLES_COMMAND_LINE)
+            .build();
+
+        // Register --page as a known option so GApplication doesn't reject it.
+        app.add_main_option(
+            "page",
+            glib::Char(0),
+            glib::OptionFlags::NONE,
+            glib::OptionArg::String,
+            "Navigate directly to a preferences page",
+            Some("PAGE"),
+        );
+
+        app
     }
 
     /// Called from `ApplicationImpl::activate`.
@@ -66,8 +93,11 @@ impl LnxdriveApp {
             return;
         }
 
-        // Parse --page argument for direct navigation
-        let initial_page = Self::parse_page_arg();
+        let initial_page = self
+            .imp()
+            .initial_page
+            .get()
+            .and_then(|p: &Option<String>| p.clone());
 
         let window = LnxdriveWindow::new(self);
 
@@ -96,18 +126,6 @@ impl LnxdriveApp {
         });
 
         window.present();
-    }
-
-    /// Parse `--page <name>` from command-line arguments.
-    fn parse_page_arg() -> Option<String> {
-        let args: Vec<String> = std::env::args().collect();
-        let mut iter = args.iter();
-        while let Some(arg) = iter.next() {
-            if arg == "--page" {
-                return iter.next().cloned();
-            }
-        }
-        None
     }
 }
 
