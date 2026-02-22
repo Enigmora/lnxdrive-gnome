@@ -29,33 +29,6 @@ static GType provider_types[3];
 static gint  n_provider_types = 0;
 
 /* ---------------------------------------------------------------------------
- * Invalidation callback — bridges D-Bus signals to Nautilus refresh.
- *
- * When the D-Bus client receives a FileStatusChanged signal it calls this
- * function. We do not have direct access to the list of visible
- * NautilusFileInfo objects from here; instead, Nautilus will naturally
- * re-query update_file_info() on the next directory refresh.
- *
- * In practice, Nautilus 4 refreshes the view when extension_info is
- * invalidated on individual NautilusFileInfo objects. The real invalidation
- * path goes through the D-Bus client -> GObject signal -> Nautilus internal
- * hooks. The invalidate callback is a belt-and-suspenders mechanism.
- * ---------------------------------------------------------------------------*/
-static void
-on_invalidate_request (gpointer user_data)
-{
-    (void) user_data;
-    /* Nautilus 4 does not expose a public API to force a full directory
-     * re-read from an extension. The invalidation happens per-file through
-     * nautilus_file_info_invalidate_extension_info() which is called by
-     * the info provider when it detects a status change.
-     *
-     * This callback exists as a hook point for future optimizations,
-     * such as batching invalidations. */
-    g_debug ("LNXDrive: invalidation requested from D-Bus client");
-}
-
-/* ---------------------------------------------------------------------------
  * Module entry points (exported symbols)
  * ---------------------------------------------------------------------------*/
 void
@@ -76,11 +49,10 @@ nautilus_module_initialize (GTypeModule *module)
     n_provider_types  = G_N_ELEMENTS (provider_types);
 
     /* Initialize the D-Bus client singleton early so it can start
-     * connecting asynchronously before Nautilus calls update_file_info(). */
-    LnxdriveDbusClient *client = lnxdrive_dbus_client_get_default ();
-    lnxdrive_dbus_client_set_invalidate_func (client,
-                                               on_invalidate_request,
-                                               NULL);
+     * connecting asynchronously before Nautilus calls update_file_info().
+     * File invalidation is handled directly by the info provider via the
+     * "file-status-changed" GObject signal — no callback needed here. */
+    lnxdrive_dbus_client_get_default ();
 
     g_info ("LNXDrive: Nautilus extension initialized (3 providers registered)");
 }
