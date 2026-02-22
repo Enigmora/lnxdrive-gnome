@@ -81,8 +81,8 @@ function assertEqual(actual, expected, message) {
 // ---------------------------------------------------------------------------
 // D-Bus constants (must match dbus.js and the mock daemon)
 // ---------------------------------------------------------------------------
-const BUS_NAME = 'org.enigmora.LNXDrive';
-const OBJECT_PATH = '/org/enigmora/LNXDrive';
+const BUS_NAME = 'com.enigmora.LNXDrive';
+const OBJECT_PATH = '/com/enigmora/LNXDrive';
 
 // ---------------------------------------------------------------------------
 // Import the dbus.js module
@@ -222,11 +222,11 @@ if (noDaemonMode) {
             const proxies = await dbusModule.createProxies();
             assert(proxies !== null, 'proxies should not be null');
 
-            assertEqual(proxies.sync.g_interface_name, 'org.enigmora.LNXDrive.Sync',
+            assertEqual(proxies.sync.g_interface_name, 'com.enigmora.LNXDrive.Sync',
                 'sync proxy interface name mismatch');
-            assertEqual(proxies.status.g_interface_name, 'org.enigmora.LNXDrive.Status',
+            assertEqual(proxies.status.g_interface_name, 'com.enigmora.LNXDrive.Status',
                 'status proxy interface name mismatch');
-            assertEqual(proxies.manager.g_interface_name, 'org.enigmora.LNXDrive.Manager',
+            assertEqual(proxies.manager.g_interface_name, 'com.enigmora.LNXDrive.Manager',
                 'manager proxy interface name mismatch');
         });
 
@@ -347,7 +347,7 @@ if (noDaemonMode) {
             assert(proxies.conflicts !== null && proxies.conflicts !== undefined,
                 'proxies.conflicts should exist');
             assertEqual(proxies.conflicts.g_interface_name,
-                'org.enigmora.LNXDrive.Conflicts',
+                'com.enigmora.LNXDrive.Conflicts',
                 'conflicts proxy interface name mismatch');
         });
 
@@ -694,7 +694,7 @@ if (daemonAvailable && !noDaemonMode) {
         // Create a Files proxy via raw Gio (not part of dbus.js createProxies)
         const FilesXml = `
         <node>
-          <interface name="org.enigmora.LNXDrive.Files">
+          <interface name="com.enigmora.LNXDrive.Files">
             <method name="GetBatchFileStatus">
               <arg type="as" direction="in" name="paths"/>
               <arg type="a{ss}" direction="out" name="statuses"/>

@@ -26,17 +26,17 @@ G_DECLARE_FINAL_TYPE (LnxdriveDbusClient, lnxdrive_dbus_client,
 /* ---------------------------------------------------------------------------
  * D-Bus constants
  * ---------------------------------------------------------------------------*/
-#define LNXDRIVE_DBUS_BUS_NAME    "org.enigmora.LNXDrive"
-#define LNXDRIVE_DBUS_OBJECT_PATH "/org/enigmora/LNXDrive"
-#define LNXDRIVE_DBUS_IFACE_FILES "org.enigmora.LNXDrive.Files"
+#define LNXDRIVE_DBUS_BUS_NAME    "com.enigmora.LNXDrive"
+#define LNXDRIVE_DBUS_OBJECT_PATH "/com/enigmora/LNXDrive"
+#define LNXDRIVE_DBUS_IFACE_FILES "com.enigmora.LNXDrive.Files"
 
 /* D-Bus error domains */
 #define LNXDRIVE_DBUS_ERROR_INSUFFICIENT_DISK_SPACE \
-    "org.enigmora.LNXDrive.Error.InsufficientDiskSpace"
+    "com.enigmora.LNXDrive.Error.InsufficientDiskSpace"
 #define LNXDRIVE_DBUS_ERROR_FILE_IN_USE \
-    "org.enigmora.LNXDrive.Error.FileInUse"
+    "com.enigmora.LNXDrive.Error.FileInUse"
 #define LNXDRIVE_DBUS_ERROR_INVALID_PATH \
-    "org.enigmora.LNXDrive.Error.InvalidPath"
+    "com.enigmora.LNXDrive.Error.InvalidPath"
 
 /* ---------------------------------------------------------------------------
  * Callback type for requesting Nautilus to re-read file info.

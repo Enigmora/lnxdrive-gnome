@@ -7,23 +7,23 @@
  * Defines XML introspection strings for the LNXDrive daemon D-Bus interfaces
  * and provides proxy wrappers for communication from the GNOME Shell extension.
  *
- * Bus name:    org.enigmora.LNXDrive
- * Object path: /org/enigmora/LNXDrive
+ * Bus name:    com.enigmora.LNXDrive
+ * Object path: /com/enigmora/LNXDrive
  *
  * Implements: FR-024, FR-025, FR-026
  */
 
 import Gio from 'gi://Gio';
 
-const BUS_NAME = 'org.enigmora.LNXDrive';
-const OBJECT_PATH = '/org/enigmora/LNXDrive';
+const BUS_NAME = 'com.enigmora.LNXDrive';
+const OBJECT_PATH = '/com/enigmora/LNXDrive';
 
 // ---------------------------------------------------------------------------
-// org.enigmora.LNXDrive.Sync
+// com.enigmora.LNXDrive.Sync
 // ---------------------------------------------------------------------------
 const SyncInterfaceXml = `
 <node>
-  <interface name="org.enigmora.LNXDrive.Sync">
+  <interface name="com.enigmora.LNXDrive.Sync">
     <method name="SyncNow"/>
     <method name="Pause"/>
     <method name="Resume"/>
@@ -50,11 +50,11 @@ const SyncInterfaceXml = `
 </node>`;
 
 // ---------------------------------------------------------------------------
-// org.enigmora.LNXDrive.Status
+// com.enigmora.LNXDrive.Status
 // ---------------------------------------------------------------------------
 const StatusInterfaceXml = `
 <node>
-  <interface name="org.enigmora.LNXDrive.Status">
+  <interface name="com.enigmora.LNXDrive.Status">
     <method name="GetQuota">
       <arg type="t" direction="out" name="used"/>
       <arg type="t" direction="out" name="total"/>
@@ -76,11 +76,11 @@ const StatusInterfaceXml = `
 </node>`;
 
 // ---------------------------------------------------------------------------
-// org.enigmora.LNXDrive.Conflicts
+// com.enigmora.LNXDrive.Conflicts
 // ---------------------------------------------------------------------------
 const ConflictsInterfaceXml = `
 <node>
-  <interface name="org.enigmora.LNXDrive.Conflicts">
+  <interface name="com.enigmora.LNXDrive.Conflicts">
     <method name="List">
       <arg type="s" direction="out" name="conflicts_json"/>
     </method>
@@ -109,11 +109,11 @@ const ConflictsInterfaceXml = `
 </node>`;
 
 // ---------------------------------------------------------------------------
-// org.enigmora.LNXDrive.Manager
+// com.enigmora.LNXDrive.Manager
 // ---------------------------------------------------------------------------
 const ManagerInterfaceXml = `
 <node>
-  <interface name="org.enigmora.LNXDrive.Manager">
+  <interface name="com.enigmora.LNXDrive.Manager">
     <method name="GetStatus">
       <arg type="s" direction="out" name="status"/>
     </method>
